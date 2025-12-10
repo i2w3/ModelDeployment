@@ -33,7 +33,7 @@ endif()
 set(OpenCV_DIR "${CMAKE_SOURCE_DIR}/libs/opencv")
 set(OPENCV_BIN_DIR "${CMAKE_SOURCE_DIR}/libs/opencv/x64/vc16/bin")
 
-set(spdlog_DIR "${CMAKE_SOURCE_DIR}/libs/spdlog/build")
+set(spdlog_DIR "${CMAKE_SOURCE_DIR}/libs/spdlog/dist/lib/cmake/spdlog")
 
 find_package(CUDAToolkit REQUIRED) # for TRTInfer CUDA::cudart
 find_package(OpenCV CONFIG REQUIRED)
@@ -50,6 +50,9 @@ target_link_libraries(main ${OpenCV_LIBS})
 
 add_executable(test_yolo src/test_yolo.cpp)
 target_link_libraries(test_yolo ${OpenCV_LIBS} YOLO)
+
+add_executable(test_yolo_trt src/test_yolo_trt.cpp)
+target_link_libraries(test_yolo_trt ${OpenCV_LIBS} YOLO-TRT)
 
 # add_executable(test_det src/test_det.cpp)
 # target_link_libraries(test_det ${OpenCV_LIBS} PaddleOCR)

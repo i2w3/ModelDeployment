@@ -37,14 +37,6 @@ else()
     )
 endif()
 
-# message(STATUS "OpenCV_INCLUDE_DIRS: ${OpenCV_INCLUDE_DIRS}")
-# message(STATUS "OpenCV_LIBS: ${OpenCV_LIBS}")
-# message(STATUS "TensorRT_INCLUDE_DIRS: ${TensorRT_INCLUDE_DIRS}")
-# message(STATUS "TensorRT_LIBS: ${TensorRT_LIBS}")
-
-
-configure_file(TRTInfer_version.h.in TRTInfer_version.h)
-
 add_library(TRTInfer ${LIB_TYPE}
     TRTInfer.cc
     utility.cc
@@ -62,7 +54,7 @@ target_include_directories(TRTInfer
 target_link_libraries(TRTInfer 
     PUBLIC
         CUDA::cudart
-        spdlog
+        spdlog::spdlog
         ${OpenCV_LIBS}
         ${TensorRT_LIBS}
 )

@@ -12,8 +12,6 @@
 #include <cuda_runtime_api.h>
 
 #include "utility.h"
-#include "TRTInfer_version.h"
-
 
 class Logger : public nvinfer1::ILogger
 {

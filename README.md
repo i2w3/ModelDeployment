@@ -1,5 +1,5 @@
 # config
-Windows 必须通过 runVSCode.ps1 进入项目才能激活 MSVC 的环境，默认使用的是 x64 - x64 的设置，需要修改查看[微软 MSVC 的说明](https://learn.microsoft.com/zh-cn/visualstudio/ide/reference/command-prompt-powershell?view=visualstudio)来修改 runVSCode.ps1 
+Windows 必须通过 runVSCode.ps1 进入项目才能激活 MSVC 的环境，默认使用的是 x64 - x64 的设置，需要修改查看[微软 MSVC 的说明](https://learn.microsoft.com/en-us/visualstudio/ide/reference/command-prompt-powershell?view=visualstudio)来修改 runVSCode.ps1 
 
 # build
 先准备好 opencv 和 spdlog
@@ -13,7 +13,7 @@ cd libs
 git clone https://github.com/gabime/spdlog.git
 cd spdlog
 mkdir build
-cmake -S . -B build -G Ninja
+cmake -S . -B build -G Ninja -DCMAKE_INSTALL_PREFIX=dist
 cmake --build build
 ```
 

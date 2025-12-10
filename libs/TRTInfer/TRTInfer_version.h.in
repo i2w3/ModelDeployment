@@ -1,0 +1,11 @@
+#ifndef TRTINFER_VERSION_H_
+#define TRTINFER_VERSION_H_
+
+#define TRTInfer_VERSION_MAJOR @TRTInfer_VERSION_MAJOR@
+#define TRTInfer_VERSION_MINOR @TRTInfer_VERSION_MINOR@
+#define TRTInfer_VERSION_PATCH @TRTInfer_VERSION_PATCH@
+
+// Human-readable version string, e.g., "1.0.0"
+#define TRTInfer_VERSION_STRING "@TRTInfer_VERSION_MAJOR@.@TRTInfer_VERSION_MINOR@.@TRTInfer_VERSION_PATCH@"
+
+#endif // TRTINFER_VERSION_H_

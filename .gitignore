@@ -1,0 +1,7 @@
+build/
+
+libs/opencv/
+libs/spdlog/
+
+res/paddleocr/
+res/yolo/

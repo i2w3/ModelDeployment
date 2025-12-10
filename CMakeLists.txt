@@ -39,10 +39,11 @@ find_package(CUDAToolkit REQUIRED) # for TRTInfer CUDA::cudart
 find_package(OpenCV CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 
-
+add_subdirectory(libs/clipper)
 add_subdirectory(libs/PaddleOCR)
 add_subdirectory(libs/TRTInfer)
 add_subdirectory(libs/YOLO)
+add_subdirectory(libs/YOLO-TRT)
 
 add_executable(main src/main.cpp)
 target_link_libraries(main ${OpenCV_LIBS})

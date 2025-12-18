@@ -81,7 +81,7 @@ std::vector<YOLODetection> YOLODetector::postprocess(const std::unordered_map<st
         else if (outputs.at("output0").dims == 3) {
             if (this->modelParams.num_classes + 4 == outputs.at("output0").size[1]) {
                 // det 模型
-                std::cout << "Post-processing detection results..." << std::endl;
+                // std::cout << "Post-processing detection results..." << std::endl;
                 results = this->postprocessDetection({outputs.at("output0")}, params);
             }
             else {
@@ -182,17 +182,5 @@ std::vector<YOLODetection> YOLODetector::postprocessDetection(const std::vector<
         det.box.width = static_cast<int>(det.box.width * x_scale);
         det.box.height = static_cast<int>(det.box.height * y_scale);
     }
-    // 绘制 detections 在图像上
-    for (const auto& det : detections) {
-        cv::rectangle(params.original, det.box, cv::Scalar(0, 255, 0), 2);
-        std::string label = "ID: " + std::to_string(det.class_id) + " Conf: " + cv::format("%.2f", det.confidence);
-        int baseLine;
-        cv::Size labelSize = cv::getTextSize(label, cv::FONT_HERSHEY_SIMPLEX, 0.5, 1, &baseLine);
-        int top = std::max(det.box.y, labelSize.height);
-        cv::rectangle(params.original, cv::Point(det.box.x, top - labelSize.height),
-                      cv::Point(det.box.x + labelSize.width, top + baseLine), cv::Scalar::all(255), cv::FILLED);
-        cv::putText(params.original, label, cv::Point(det.box.x, top), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(), 1);
-    }
-    cv::imwrite("detection_result.jpg", params.original);
     return detections;
 }

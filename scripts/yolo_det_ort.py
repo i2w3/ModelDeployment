@@ -145,7 +145,7 @@ def iou(box1:list[int], box2:list[int]) -> float:
 if __name__ == "__main__":
     # setting ort environment
     so = ort.SessionOptions()
-    # so.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL # 启用所有优化
+    so.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL # 启用所有优化
     providers = [
         ('TensorrtExecutionProvider', {
             'device_id': 0,
@@ -153,6 +153,9 @@ if __name__ == "__main__":
             'trt_fp16_enable': True,
             'trt_engine_cache_enable': True,
             'trt_engine_cache_path': './res/yolo/trt_cache',
+            'trt_timing_cache_enable': True, # timing cache 加速在其它设备上建立 engine
+            'trt_timing_cache_path': './res/yolo/trt_cache/time_cache',
+            'trt_force_timing_cache': False, # 仅在与生成 timing cache 的 GPU 型号完全相同的 GPU 上使用
         }),
         ('CUDAExecutionProvider', {
             'device_id': 0,
@@ -186,14 +189,12 @@ if __name__ == "__main__":
 
     # Run inference for {runs} times to measure performance
     image_path = "res/bus.jpg"
-    runs = 100
+    runs = 1000
     start_time = time.time()
     for _ in range(runs):
         image = cv2.imread(image_path)
         input_size = (640, 640)
         det_input = preProcess(image, input_size[0])
-
-        # 普通推理，不使用 IO Binding
         outputs = session.run([output_name], {input_name: det_input.blob})
         results = postProcess(outputs)
     end_time = time.time()

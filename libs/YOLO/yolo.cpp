@@ -100,7 +100,7 @@ std::vector<YOLODetection> YOLODetector::postProcess(const std::vector<cv::Mat>&
             // det、obb、pose 模型
             if (this->modelParams.num_classes + 4 == outputs[0].size[1]) {
                 // det 模型
-                std::cout << "Post-processing detection results..." << std::endl;
+                // std::cout << "Post-processing detection results..." << std::endl;
                 results = this->postprocessDetection(outputs, params);
             }
             else if (this->modelParams.num_classes + 5 == outputs[0].size[1]) {

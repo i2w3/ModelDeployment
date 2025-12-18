@@ -27,6 +27,21 @@ int main() {
         std::chrono::duration<double, std::milli> inference_time = end - start;
         std::cout << "Inference time: " << inference_time.count() << " ms" << std::endl;
         std::cout << "Detect " << result.size() << " objects." << std::endl;
+        // 绘制 detections 在图像上
+        #ifdef IS_DEBUG
+        for (const auto& det : result) {
+            cv::rectangle(image, det.box, cv::Scalar(0, 255, 0), 2);
+            std::string label = "ID: " + std::to_string(det.class_id) + " Conf: " + cv::format("%.2f", det.confidence);
+            int baseLine;
+            cv::Size labelSize = cv::getTextSize(label, cv::FONT_HERSHEY_SIMPLEX, 0.5, 1, &baseLine);
+            int top = std::max(det.box.y, labelSize.height);
+            cv::rectangle(image, cv::Point(det.box.x, top - labelSize.height),
+                        cv::Point(det.box.x + labelSize.width, top + baseLine), cv::Scalar::all(255), cv::FILLED);
+            cv::putText(image, label, cv::Point(det.box.x, top), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(), 1);
+        }
+        cv::imshow("Detections", image);
+        cv::waitKey(0);
+        #endif
     }
     return 0;
 }

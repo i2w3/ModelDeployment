@@ -4,6 +4,7 @@
 - [x] OPENCV RTSP 取流和推流 (src/test_rtsp.cpp 依赖 GSTREAMER，src/test_rtsp2.cpp 依赖 FFMPEG)
 - [x] YOLO11 五种模型预测 + 推流 (src/test_yolo_trt_stream.cpp)
 - [ ] 跨平台编译测试 (目前仅在 Windows 上测试通过)
+- [ ] 优化推流代码 (目前刚开始启动推流后，正常播放几秒后必卡几秒，随后正常)
 
 
 # config

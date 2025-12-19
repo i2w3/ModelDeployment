@@ -1,3 +1,11 @@
+# WorkList
+- [x] ONNX 模型转 TensorRT Engine (FP32、FP16) (scripts/build_engine.py)
+- [x] YOLO11 五种模型(cls/det/obb/pose/seg) TensorRT 推理 (libs/YOLO-TRT)
+- [x] OPENCV RTSP 取流和推流 (src/test_rtsp.cpp 依赖 GSTREAMER，src/test_rtsp2.cpp 依赖 FFMPEG)
+- [x] YOLO11 五种模型预测 + 推流 (src/test_yolo_trt_stream.cpp)
+- [ ] 跨平台编译测试 (目前仅在 Windows 上测试通过)
+
+
 # config
 Windows 必须通过 runVSCode.ps1 进入项目才能激活 MSVC 的环境，默认使用的是 x64 - x64 的设置，需要修改查看[微软 MSVC 的说明](https://learn.microsoft.com/en-us/visualstudio/ide/reference/command-prompt-powershell?view=visualstudio)来修改 runVSCode.ps1。
 

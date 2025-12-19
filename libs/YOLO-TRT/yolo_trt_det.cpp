@@ -57,6 +57,9 @@ std::vector<YOLODetection> YOLODet::postprocess(const std::unordered_map<std::st
     if (!boxes.empty()) {
         cv::dnn::NMSBoxes(boxes, confidences, 0.0f, this->modelParams.nms_threshold, indices, 1.f, this->modelParams.max_det);
     }
+    else {
+        return detections; // 没有检测到目标，直接返回空结果
+    }
 
     // 将过滤后的索引转换为最终的YOLODetection对象
     detections.reserve(indices.size());  // 预分配最终结果vector

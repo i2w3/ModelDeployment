@@ -75,7 +75,9 @@ std::vector<YOLODetection> YOLOSeg::postprocess(const std::unordered_map<std::st
     if (!boxes.empty()) {
         cv::dnn::NMSBoxes(boxes, confidences, 0.0f, this->modelParams.nms_threshold, indices, 1.f, this->modelParams.max_det);
     }
-
+    else {
+        return detections; // 没有检测到目标，直接返回空结果
+    }
 
     detections.reserve(indices.size()); // 预分配最终结果vector
     cv::Mat filtered_masks_coeffs;      // 保存NMS后对应的mask系数
@@ -116,7 +118,6 @@ std::vector<YOLODetection> YOLOSeg::postprocess(const std::unordered_map<std::st
     } else {
         std::cerr << "Both top and left padding are non-zero, which is unexpected." << std::endl;
     }
-    std::cout << "ROI for mask cropping: " << roi << std::endl;
 
     for (size_t i = 0; i < detections.size(); i++) {
         cv::Mat dest, mask;
@@ -124,12 +125,16 @@ std::vector<YOLODetection> YOLOSeg::postprocess(const std::unordered_map<std::st
         dest = 1.0 / (1.0 + dest); // [proto_h, proto_w]
         dest = dest(roi); // 裁剪掉 letterbox 区域
         cv::resize(dest, mask, cv::Size(static_cast<int>(params.original.cols), static_cast<int>(params.original.rows)), cv::INTER_LINEAR); // 调整掩码大小以匹配原始图像尺寸
-        std::cout << "Mask size after resize: " << mask.size() << std::endl;
         // 调整边界框以补偿前处理中的缩放和填充
         detections[i].box.x = static_cast<int>((detections[i].box.x - params.left) / params.scale);
         detections[i].box.y = static_cast<int>((detections[i].box.y - params.top) / params.scale);
         detections[i].box.width = static_cast<int>(detections[i].box.width / params.scale);
         detections[i].box.height = static_cast<int>(detections[i].box.height / params.scale);
+        // 防止 ROI 越界造成 mask 访问越界
+        detections[i].box.x = std::max(0, detections[i].box.x);
+        detections[i].box.y = std::max(0, detections[i].box.y);
+        detections[i].box.width = std::min(detections[i].box.width, params.original.cols - detections[i].box.x);
+        detections[i].box.height = std::min(detections[i].box.height, params.original.rows - detections[i].box.y);
         detections[i].boxMask = mask(detections[i].box) > this->modelParams.seg_threshold;
     }
     return detections;

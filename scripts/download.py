@@ -23,4 +23,4 @@ if __name__ == "__main__":
                 model = YOLO(model_name)
                 onnx_path = model.export(format="onnx")
                 shutil.move(onnx_path, output_dir / model_name.replace(".pt", ".onnx"))
-                shutil.move(model_name, output_dir)
+                # shutil.move(model_name, output_dir) # Uncomment to move the original .pt files

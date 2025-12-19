@@ -22,7 +22,14 @@ endif()
 
 message(">> Configure YOLO-TRT")
 
-add_library(${PROJECT_NAME} ${LIB_TYPE} yolo_trt.cpp)
+add_library(${PROJECT_NAME} 
+    ${LIB_TYPE} 
+        yolo_trt.cpp 
+        yolo_trt_cls.cpp
+        yolo_trt_det.cpp
+        yolo_trt_obb.cpp
+        yolo_trt_pose.cpp
+        yolo_trt_seg.cpp)
 target_include_directories(${PROJECT_NAME}
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}

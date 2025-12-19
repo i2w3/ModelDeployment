@@ -8,7 +8,7 @@
 
 std::vector<std::string> detection_classes {"person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "traffic light", "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sports ball", "kite", "baseball bat", "baseball glove", "skateboard", "surfboard", "tennis racket", "bottle", "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange", "broccoli", "carrot", "hot dog", "pizza", "donut", "cake", "chair", "couch", "potted plant", "bed", "dining table", "toilet", "tv", "laptop", "mouse", "remote", "keyboard", "cell phone", "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"};
 
-ModelParams detParams  = {640, 80, detection_classes, 0.25f, 0.45f, 0, 0, 0.0f};
+ModelParams detParams  = {640, 80, detection_classes, 0.25f, 0.45f, 300, 0, 0, 0.0f};
 
 std::string getEnvironmentVariable(const std::string_view& varname) {
     // Source - https://stackoverflow.com/questions/15916695/can-anyone-give-me-example-code-of-dupenv-s
@@ -51,10 +51,11 @@ int main() {
     setupEnv();
     std::string rtspInputUrl, rtspOutputUrl, model_path;
 
-    std::cout << "Enter the path to the model file: ";
-    std::cin >> model_path;
+    // std::cout << "Enter the path to the model file: ";
+    // std::cin >> model_path;
+    model_path = "D:/code/ModelDeployment/res/yolo/trt_cache/yolo11n_fp16_16084721098685413204_0_fp16_sm89.engine";
 
-    YOLODetector model(model_path, detParams);
+    YOLODet model(model_path, detParams);
 
     rtspInputUrl = "rtspsrc location=rtsp://127.0.0.1:8554/live protocols=tcp latency=200 ! "
                    "rtph264depay wait-for-keyframe=true ! h264parse ! avdec_h264 ! "
@@ -83,7 +84,11 @@ int main() {
     }
 
     cv::Mat frame;
+    std::chrono::steady_clock::time_point start, end;
+    std::string fps_time;
+    cv::Point fps_pos = cv::Point(20, 40);
     while (true) {
+        start = std::chrono::high_resolution_clock::now();
         cap >> frame;
         if (frame.empty()) {
             std::cout << "Empty frame! Stop streaming." << std::endl;
@@ -92,7 +97,7 @@ int main() {
         auto result = model.infer(frame);
         for (const auto& det : result) {
             cv::rectangle(frame, det.box, cv::Scalar(0, 255, 0), 2);
-            std::string label = "ID: " + std::to_string(det.class_id) + " Conf: " + cv::format("%.2f", det.confidence);
+            std::string label = "ID: " + detParams.class_names[det.class_id] + " Conf: " + cv::format("%.2f", det.confidence);
             int baseLine;
             cv::Size labelSize = cv::getTextSize(label, cv::FONT_HERSHEY_SIMPLEX, 0.5, 1, &baseLine);
             int top = std::max(det.box.y, labelSize.height);
@@ -100,6 +105,10 @@ int main() {
                         cv::Point(det.box.x + labelSize.width, top + baseLine), cv::Scalar::all(255), cv::FILLED);
             cv::putText(frame, label, cv::Point(det.box.x, top), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(), 1);
         }
+        end = std::chrono::high_resolution_clock::now();
+        fps_time = cv::format("FPS: %.2f", 1000.0 / std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()),
+        cv::putText(frame, fps_time, fps_pos, cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0, 0, 0), 4);
+        cv::putText(frame, fps_time, fps_pos, cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(255, 255, 255), 2);
         writer.write(frame);
     }
     writer.release();

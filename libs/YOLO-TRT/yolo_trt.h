@@ -45,10 +45,11 @@ struct ModelParams {
     std::vector<std::string> class_names;
     float conf_threshold;
     float nms_threshold;
+    int max_det;
     // For seg models
     float seg_threshold;
     // For pose models
-    int numKPS;
+    int num_kps;
     float kps_threshold;
 };
 
@@ -59,13 +60,44 @@ public:
     std::vector<YOLODetection> infer(const cv::Mat& image);
 
     PreprocessParams preprocess(const cv::Mat& image);
-    std::vector<YOLODetection> postprocess(const std::unordered_map<std::string, cv::Mat>& outputs, const PreprocessParams& params);
 
-private:
+    // 纯虚函数，由派生类实现不同的后处理逻辑
+    virtual std::vector<YOLODetection> postprocess(const std::unordered_map<std::string, cv::Mat>& outputs, const PreprocessParams& params) = 0;
+
+protected:
     TRTInfer net;
     ModelParams modelParams;
+};
 
-    std::vector<YOLODetection> postprocessDetection(const std::vector<cv::Mat>& outputs, const PreprocessParams& params);
+// 派生出五个不同的检测器类，以适应不同的模型输出格式
+class YOLOCls: public YOLODetector {
+public:
+    using YOLODetector::YOLODetector; // 没有无参构造函数，必须实现构造函数，使用继承基类构造函数
+    std::vector<YOLODetection> postprocess(const std::unordered_map<std::string, cv::Mat>& outputs, const PreprocessParams& params) override;
+};
+
+class YOLODet: public YOLODetector {
+public:
+    using YOLODetector::YOLODetector;
+    std::vector<YOLODetection> postprocess(const std::unordered_map<std::string, cv::Mat>& outputs, const PreprocessParams& params) override;
+};
+
+class YOLOObb: public YOLODetector {
+public:
+    using YOLODetector::YOLODetector;
+    std::vector<YOLODetection> postprocess(const std::unordered_map<std::string, cv::Mat>& outputs, const PreprocessParams& params) override;
+};
+
+class YOLOPose: public YOLODetector {
+public:
+    using YOLODetector::YOLODetector;
+    std::vector<YOLODetection> postprocess(const std::unordered_map<std::string, cv::Mat>& outputs, const PreprocessParams& params) override;
+};
+
+class YOLOSeg: public YOLODetector {
+public:
+    using YOLODetector::YOLODetector;
+    std::vector<YOLODetection> postprocess(const std::unordered_map<std::string, cv::Mat>& outputs, const PreprocessParams& params) override;
 };
 
 #endif // YOLOTRT_H

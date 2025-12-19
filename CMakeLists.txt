@@ -34,7 +34,6 @@ add_compile_definitions(
 add_subdirectory(libs/clipper)
 add_subdirectory(libs/PaddleOCR)
 add_subdirectory(libs/TRTInfer)
-add_subdirectory(libs/YOLO)
 add_subdirectory(libs/YOLO-TRT)
 
 add_executable(main src/main.cpp)
@@ -49,14 +48,5 @@ target_link_libraries(test_rtsp2 ${OpenCV_LIBS})
 add_executable(test_yolo_trt_stream src/test_yolo_trt_stream.cpp)
 target_link_libraries(test_yolo_trt_stream ${OpenCV_LIBS} YOLO-TRT)
 
-# add_executable(test_yolo src/test_yolo.cpp)
-# target_link_libraries(test_yolo ${OpenCV_LIBS} YOLO)
-
 add_executable(test_yolo_trt src/test_yolo_trt.cpp)
 target_link_libraries(test_yolo_trt ${OpenCV_LIBS} YOLO-TRT)
-
-# add_executable(test_det src/test_det.cpp)
-# target_link_libraries(test_det ${OpenCV_LIBS} PaddleOCR)
-
-# add_executable(test_cls src/test_cls.cpp)
-# target_link_libraries(test_cls ${OpenCV_LIBS} PaddleOCR)

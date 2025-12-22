@@ -14,6 +14,7 @@ model_list = [
     "{}{}-obb.pt"
 ]
 output_dir = Path("res/yolo")
+Path.mkdir(output_dir, parents=True, exist_ok=True)
 
 if __name__ == "__main__":
     for series in series_list:

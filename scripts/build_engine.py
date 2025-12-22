@@ -1,5 +1,6 @@
 from pathlib import Path
 import onnxruntime as ort
+assert "TensorrtExecutionProvider" in ort.get_available_providers(), "TensorRT Execution Provider is not available in ONNX Runtime. Maybe need to reinstall onnxruntime-gpu, try: pip3 uninstall onnxruntime onnxruntime-gpu && pip3 install onnxruntime-gpu"
 
 series_list = ["yolo11", "yolov8"]
 scales_list = ["n", "s"]

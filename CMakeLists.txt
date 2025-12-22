@@ -31,8 +31,8 @@ add_compile_definitions(
     $<$<CONFIG:Release>:IS_RELEASE>
 )
 
-add_subdirectory(libs/clipper)
-add_subdirectory(libs/PaddleOCR)
+# add_subdirectory(libs/clipper)
+# add_subdirectory(libs/PaddleOCR)
 add_subdirectory(libs/TRTInfer)
 add_subdirectory(libs/YOLO-TRT)
 

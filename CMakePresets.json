@@ -24,6 +24,20 @@
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug"
             }
+        },
+        {
+            "name": "linux_release",
+            "inherits": "release",
+            "cacheVariables": {
+                "VCPKG_TARGET_TRIPLET": "x64-linux-dynamic"
+            }
+        },
+                {
+            "name": "linux_debug",
+            "inherits": "debug",
+            "cacheVariables": {
+                "VCPKG_TARGET_TRIPLET": "x64-linux-dynamic"
+            }
         }
     ]
 }

@@ -12,24 +12,27 @@ void setupEnv() {
 
 int main(int argc, char** argv) {
     setupEnv();
-    if (argc != 2) {
-        std::cout << "Usage: " << argv[0] << " <rtsp_url> \n"
-                  << "Example: for windows: rtsp://127.0.0.1:8554/live \n"
-                  << "         for linux:   rtsp://mediamtx:8554/live"
+    if (argc != 3) {
+        std::cout << "Usage: " << argv[0] << " <rtspInputUrl> <rtspOutputUrl> \n"
+                  << "Example: for windows: rtsp://127.0.0.1:8554/live rtsp://127.0.0.1:8554/output \n"
+                  << "         for linux:   rtsp://mediamtx:8554/live  rtsp://mediamtx:8554/output \n"
                   << std::endl;
         return -1;
     }
-    std::string rtspInputUrl = argv[1];
+    std::string rtspInputUrl(argv[1]),rtspOutputUrl(argv[2]);
     std::cout << "RTSP Input URL: " << rtspInputUrl << std::endl;
+    std::cout << "RTSP Output URL: " << rtspOutputUrl << std::endl;
+    
     // init VideoCapture with FFMPEG backend
     cv::VideoCapture cap(rtspInputUrl, cv::CAP_FFMPEG);
     if (!cap.isOpened()) {
         std::cout << "Failed to open RTSP stream!" << std::endl;
         return -1;
     }
-    int width   = (int)cap.get(cv::CAP_PROP_FRAME_WIDTH);
-    int height  = (int)cap.get(cv::CAP_PROP_FRAME_HEIGHT);
-    float fps   = (float)cap.get(cv::CAP_PROP_FPS);
+    
+    int width   = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_WIDTH));
+    int height  = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_HEIGHT));
+    float fps   = static_cast<float>(cap.get(cv::CAP_PROP_FPS));
     // init FFMPEG pipe for RTSP output
     std::string ffmpegCMD;
     #ifdef WIN32
@@ -39,7 +42,7 @@ int main(int argc, char** argv) {
                 " -framerate " + std::to_string(fps) +
                 " -i - -c:v h264_nvenc -an" + // 设置编码器
                 " -preset p3" + // 优化项
-                " -rtsp_transport tcp -f rtsp rtsp://127.0.0.1:8554/output";
+                " -rtsp_transport tcp -f rtsp " + rtspOutputUrl;
     std::cout << "FFmpeg command: " << ffmpegCMD << std::endl;
     FILE* ffmpegPipe = _popen(ffmpegCMD.c_str(), "wb");
     #elif defined __linux__
@@ -62,7 +65,7 @@ int main(int argc, char** argv) {
                 " -framerate " + std::to_string(fps) +
                 " -i - -c:v h264_nvenc -an" + // 设置编码器
                 " -preset p3" + // 优化项
-                " -rtsp_transport tcp -f rtsp rtsp://mediamtx:8554/output";
+                " -rtsp_transport tcp -f rtsp " + rtspOutputUrl;
     std::cout << "FFmpeg command: " << ffmpegCMD << std::endl;
     FILE* ffmpegPipe = popen(ffmpegCMD.c_str(), "w");
     #endif

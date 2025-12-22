@@ -4,7 +4,9 @@
 #include <filesystem>
 #include <cstdio>
 
-std::string getEnvironmentVariable(const std::string_view& varname) {
+// GSTREAMER 取流和推流，目测目前延迟较低
+std::string getEnvironmentVariable(const std::string& varname) {
+    #ifdef _WIN32
     // Source - https://stackoverflow.com/questions/15916695/can-anyone-give-me-example-code-of-dupenv-s
     // Posted by chrisake, modified by community. License - CC BY-SA 4.0
     char* buf = nullptr;
@@ -14,6 +16,9 @@ std::string getEnvironmentVariable(const std::string_view& varname) {
     }
     std::string result(buf);
     free(buf);
+    #elif defined __linux__
+    std::string result = std::getenv(varname.c_str());
+    #endif
     return result;
 }
 
@@ -24,47 +29,79 @@ void setupEnv() {
     // Set GStreamer environment variables
     std::string vcpkg_root(getEnvironmentVariable("VCPKG_ROOT")), gstreamer_plugins, gstreamer_bin;
     std::filesystem::path gstreamer_plugins_path, gstreamer_bin_path;
-    // only test pass on Windows
+
+    #ifdef _WIN32
+    std::string platform = "x64-windows";
+    std::string system_lib = getEnvironmentVariable("PATH");
+    #elif defined __linux__
+    std::string platform = "x64-linux-dynamic";
+    std::string system_lib = getEnvironmentVariable("LD_LIBRARY_PATH");
+    #endif
+
     #ifdef IS_DEBUG
         std::cout << cv::getBuildInformation() << std::endl;
+        #ifdef WIN32
         _putenv("GST_DEBUG=3");
-        gstreamer_plugins_path = std::filesystem::path(vcpkg_root) / "installed" / "x64-windows" / "debug" / "plugins" / "gstreamer";
-        gstreamer_bin_path = std::filesystem::path(vcpkg_root) / "installed" / "x64-windows" / "debug" / "bin";
+        #elif defined __linux__
+        setenv("GST_DEBUG", "3", 1);
+        #endif
+        gstreamer_plugins_path = std::filesystem::path(vcpkg_root) / "installed" / platform / "debug" / "plugins" / "gstreamer";
+        gstreamer_bin_path = std::filesystem::path(vcpkg_root) / "installed" / platform / "debug" / "bin";
     #else
-        gstreamer_plugins_path = std::filesystem::path(vcpkg_root) / "installed" / "x64-windows" / "plugins" / "gstreamer";
-        gstreamer_bin_path = std::filesystem::path(vcpkg_root) / "installed" / "x64-windows" / "bin";
+        gstreamer_plugins_path = std::filesystem::path(vcpkg_root) / "installed" / platform / "plugins" / "gstreamer";
+        gstreamer_bin_path = std::filesystem::path(vcpkg_root) / "installed" / platform / "bin";
     #endif
-    gstreamer_plugins = "GST_PLUGIN_PATH=" + gstreamer_plugins_path.string();
-    gstreamer_bin = "PATH=" + gstreamer_bin_path.string() + ";" + getEnvironmentVariable("PATH");
-    _putenv(gstreamer_plugins.c_str());
-    _putenv(gstreamer_bin.c_str());
+    gstreamer_plugins = gstreamer_plugins_path.string();
+    gstreamer_bin = gstreamer_bin_path.string() + ";" + system_lib;
+    #ifdef WIN32
+    _putenv(("GST_PLUGIN_PATH=" + gstreamer_plugins).c_str());
+    _putenv(("PATH=" + gstreamer_bin).c_str());
+    #elif defined __linux__
+    setenv("GST_PLUGIN_PATH", gstreamer_plugins_path.string().c_str(), 1);
+    setenv("LD_LIBRARY_PATH", gstreamer_bin_path.string().c_str(), 1);
+    #endif
 }
 
 
-int main() {
+int main(int argc, char** argv) {
     setupEnv();
-    std::string rtspInputUrl, rtspOutputUrl;
+    if (argc != 3) {
+        std::cout << "Usage: " << argv[0] << " <rtspInputUrl> <rtspOutputUrl> \n"
+                  << "Example: for windows: rtsp://127.0.0.1:8554/live rtsp://127.0.0.1:8554/output \n"
+                  << "         for linux:   rtsp://mediamtx:8554/live  rtsp://mediamtx:8554/output \n"
+                  << std::endl;
+        return -1;
+    }
+    std::string rtspInputUrl(argv[1]),rtspOutputUrl(argv[2]);
+    std::cout << "RTSP Input URL: " << rtspInputUrl << std::endl;
+    std::cout << "RTSP Output URL: " << rtspOutputUrl << std::endl;
 
-    rtspInputUrl = "rtspsrc location=rtsp://127.0.0.1:8554/live protocols=tcp latency=200 ! "
-                   "rtph264depay wait-for-keyframe=true ! h264parse ! avdec_h264 ! "
-                   "videoconvert ! video/x-raw, format=BGR ! appsink drop=true";
-    rtspOutputUrl = "appsrc is-live=true format=time ! videoconvert ! x264enc tune=zerolatency "
-                    "speed-preset=ultrafast bitrate=2000 ! rtspclientsink "
-                    "location=rtsp://127.0.0.1:8554/out protocols=tcp";
+    std::string gstInputPipeline, gstOutputPipeline;
+    gstInputPipeline = "rtspsrc location=" + rtspInputUrl + " protocols=tcp latency=200 ! "
+                       "rtph264depay wait-for-keyframe=true ! "
+                       "h264parse ! "
+                    //    "avdec_h264 ! " 
+                       "nvh264dec ! "
+                       "videoconvert ! "
+                       "video/x-raw, format=BGR ! "
+                       "appsink drop=true";
+    gstOutputPipeline = "appsrc is-live=true format=time ! "
+                        "videoconvert ! "
+                        "x264enc tune=zerolatency speed-preset=ultrafast bitrate=2000 ! "
+                        "rtspclientsink location=" + rtspOutputUrl + " protocols=tcp";
 
-    cv::VideoCapture cap(rtspInputUrl, cv::CAP_GSTREAMER);
+    cv::VideoCapture cap(gstInputPipeline, cv::CAP_GSTREAMER);
 
     if (!cap.isOpened()) {
         std::cout << "Failed to open RTSP stream!" << std::endl;
         return -1;
     }
 
-    int width = (int)cap.get(cv::CAP_PROP_FRAME_WIDTH);
-    int height = (int)cap.get(cv::CAP_PROP_FRAME_HEIGHT);
-    double fps = cap.get(cv::CAP_PROP_FPS);
-    std::cout << "Stream properties: " << width << "x" << height << " @ " << fps << " FPS" << std::endl;
+    int width   = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_WIDTH));
+    int height  = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_HEIGHT));
+    float fps   = static_cast<float>(cap.get(cv::CAP_PROP_FPS));
 
-    cv::VideoWriter writer(rtspOutputUrl, cv::CAP_GSTREAMER, 0, fps, cv::Size(width, height), true);
+    cv::VideoWriter writer(gstOutputPipeline, cv::CAP_GSTREAMER, 0, fps, cv::Size(width, height), true);
 
     if (!writer.isOpened()) {
         std::cerr << "Failed to open VideoWriter" << std::endl;

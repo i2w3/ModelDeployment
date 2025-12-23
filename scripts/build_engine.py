@@ -36,5 +36,7 @@ if __name__ == "__main__":
                         'trt_force_timing_cache': False, # 仅在与生成 timing cache 的 GPU 型号完全相同的 GPU 上使用
                     })
                 ]
+                if (model_path / model_name).exists() is False:
+                    continue
                 session = ort.InferenceSession(str(model_path / model_name), sess_options=so, providers=providers)
                 del session, so, providers

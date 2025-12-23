@@ -37,16 +37,28 @@ add_subdirectory(libs/TRTInfer)
 add_subdirectory(libs/YOLO-TRT)
 
 add_executable(main src/main.cpp)
-target_link_libraries(main ${OpenCV_LIBS})
+target_link_libraries(main PRIVATE
+    ${OpenCV_LIBS}
+)
 
 add_executable(test_rtsp src/test_rtsp.cpp)
-target_link_libraries(test_rtsp ${OpenCV_LIBS})
+target_link_libraries(test_rtsp PRIVATE
+    ${OpenCV_LIBS}
+)
 
 add_executable(test_rtsp2 src/test_rtsp2.cpp)
-target_link_libraries(test_rtsp2 ${OpenCV_LIBS})
+target_link_libraries(test_rtsp2 PRIVATE
+    ${OpenCV_LIBS}
+)
 
 add_executable(test_yolo_trt_stream src/test_yolo_trt_stream.cpp)
-target_link_libraries(test_yolo_trt_stream ${OpenCV_LIBS} YOLO-TRT)
+target_link_libraries(test_yolo_trt_stream PRIVATE
+    ${OpenCV_LIBS}
+    YOLO-TRT
+)
 
 add_executable(test_yolo_trt src/test_yolo_trt.cpp)
-target_link_libraries(test_yolo_trt ${OpenCV_LIBS} YOLO-TRT)
+target_link_libraries(test_yolo_trt PRIVATE
+    ${OpenCV_LIBS}
+    YOLO-TRT
+)

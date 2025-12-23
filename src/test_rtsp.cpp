@@ -66,45 +66,36 @@ void setupEnv() {
 int main(int argc, char** argv) {
     setupEnv();
     if (argc != 3) {
-        std::cout << "Usage: " << argv[0] << " <rtspInputUrl> <rtspOutputUrl> \n"
-                  << "Example: for windows: rtsp://127.0.0.1:8554/live rtsp://127.0.0.1:8554/output \n"
-                  << "         for linux:   rtsp://mediamtx:8554/live  rtsp://mediamtx:8554/output \n"
+        std::cout << "Usage: " << argv[0] << " <gstInputPipeline> <gstOutputPipeline> "
                   << std::endl;
         return -1;
     }
-    std::string rtspInputUrl(argv[1]),rtspOutputUrl(argv[2]);
-    std::cout << "RTSP Input URL: " << rtspInputUrl << std::endl;
-    std::cout << "RTSP Output URL: " << rtspOutputUrl << std::endl;
-
-    std::string gstInputPipeline, gstOutputPipeline;
-    gstInputPipeline = "rtspsrc location=" + rtspInputUrl + " protocols=tcp latency=200 ! "
-                       "rtph264depay wait-for-keyframe=true ! "
-                       "h264parse ! "
-                    //    "avdec_h264 ! " 
-                       "nvh264dec ! "
-                       "videoconvert ! "
-                       "video/x-raw, format=BGR ! "
-                       "appsink drop=true";
-    gstOutputPipeline = "appsrc is-live=true format=time ! "
-                        "videoconvert ! "
-                        "x264enc tune=zerolatency speed-preset=ultrafast bitrate=2000 ! "
-                        "rtspclientsink location=" + rtspOutputUrl + " protocols=tcp";
+    std::string gstInputPipeline(argv[1]),gstOutputPipeline(argv[2]);
+    std::cout << "gstInputPipeline: " << gstInputPipeline << std::endl;
+    std::cout << "gstOutputPipeline: " << gstOutputPipeline << std::endl;
 
     cv::VideoCapture cap(gstInputPipeline, cv::CAP_GSTREAMER);
 
     if (!cap.isOpened()) {
-        std::cout << "Failed to open RTSP stream!" << std::endl;
+        std::cout << "Failed to open RTSP stream! Check gst input pipeline." << gstInputPipeline << std::endl;
         return -1;
     }
 
     int width   = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_WIDTH));
     int height  = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_HEIGHT));
-    float fps   = static_cast<float>(cap.get(cv::CAP_PROP_FPS));
+    int fps     = static_cast<int>(cap.get(cv::CAP_PROP_FPS));
 
-    cv::VideoWriter writer(gstOutputPipeline, cv::CAP_GSTREAMER, 0, fps, cv::Size(width, height), true);
+    std::string outputCaps = cv::format("video/x-raw,format=BGR,width=%d,height=%d,framerate=%d/1",
+                                        width, height, fps);
+    std::string fullOutputPipeline = "appsrc is-live=true format=time do-timestamp=true ! " +
+                                     outputCaps + " ! " +
+                                     gstOutputPipeline;
+    std::cout << "Output Pipeline: " << fullOutputPipeline << std::endl;
+
+    cv::VideoWriter writer(fullOutputPipeline, cv::CAP_GSTREAMER, 0, fps, cv::Size(width, height), true);
 
     if (!writer.isOpened()) {
-        std::cerr << "Failed to open VideoWriter" << std::endl;
+        std::cerr << "Failed to open VideoWriter! Check gst output pipeline: " << fullOutputPipeline << std::endl;
         return -1;
     }
 
@@ -112,7 +103,7 @@ int main(int argc, char** argv) {
     while (true) {
         cap >> frame;
         if (frame.empty()) {
-            std::cout << "Empty frame" << std::endl;
+            std::cout << "Empty frame! Stop streaming." << std::endl;
             break;
         }
         writer.write(frame);

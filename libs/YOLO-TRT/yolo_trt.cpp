@@ -2,7 +2,7 @@
 
 YOLODetector::YOLODetector(const std::string& modelPath, const ModelParams& modelParams_) 
     :net(modelPath), modelParams(modelParams_) {
-    assert(modelParams.num_classes == modelParams.class_names.size());
+    assert(modelParams.num_classes == static_cast<int>(modelParams.class_names.size()));
     std::cout << "Initialized YOLODetector with model path: " << modelPath << std::endl;
 }
 
@@ -11,29 +11,29 @@ std::vector<YOLODetection> YOLODetector::infer(const cv::Mat& image) {
 #ifdef IS_DEBUG
     std::chrono::steady_clock::time_point start, end;
     std::chrono::duration<double, std::milli> preprocess_time;
-    start = std::chrono::high_resolution_clock::now();
+    start = std::chrono::steady_clock::now();
 #endif
     // 前处理
     PreprocessParams params = this->preprocess(image);
     std::unordered_map<std::string, cv::Mat> input_blobs = {{"images", params.blob}};
 #ifdef IS_DEBUG
-    end = std::chrono::high_resolution_clock::now();
+    end = std::chrono::steady_clock::now();
     preprocess_time = end - start;
     std::cout << "Preprocessing time: " << preprocess_time.count() << " ms" << std::endl;
-    start = std::chrono::high_resolution_clock::now();
+    start = std::chrono::steady_clock::now();
 #endif
     // 正向传播
     std::unordered_map<std::string, cv::Mat> outputs = this->net(input_blobs);
 #ifdef IS_DEBUG
-    end = std::chrono::high_resolution_clock::now();
+    end = std::chrono::steady_clock::now();
     preprocess_time = end - start;
     std::cout << "model forward time: " << preprocess_time.count() << " ms" << std::endl;
-    start = std::chrono::high_resolution_clock::now();
+    start = std::chrono::steady_clock::now();
 #endif
     // 后处理
     auto result = this->postprocess(outputs, params);
 #ifdef IS_DEBUG
-    end = std::chrono::high_resolution_clock::now();
+    end = std::chrono::steady_clock::now();
     preprocess_time = end - start;
     std::cout << "Postprocessing time: " << preprocess_time.count() << " ms" << std::endl;
 #endif

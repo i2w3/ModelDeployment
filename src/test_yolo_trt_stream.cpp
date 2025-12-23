@@ -9,7 +9,8 @@
 // 定义在 yolo_trt.h 中
 extern const ModelParams clsParams, detParams, obbParams, poseParams, segParams;
 
-std::string getEnvironmentVariable(const std::string_view& varname) {
+std::string getEnvironmentVariable(const std::string& varname) {
+    #ifdef _WIN32
     // Source - https://stackoverflow.com/questions/15916695/can-anyone-give-me-example-code-of-dupenv-s
     // Posted by chrisake, modified by community. License - CC BY-SA 4.0
     char* buf = nullptr;
@@ -19,6 +20,9 @@ std::string getEnvironmentVariable(const std::string_view& varname) {
     }
     std::string result(buf);
     free(buf);
+    #elif defined __linux__
+    std::string result = std::getenv(varname.c_str());
+    #endif
     return result;
 }
 
@@ -29,39 +33,60 @@ void setupEnv() {
     // Set GStreamer environment variables
     std::string vcpkg_root(getEnvironmentVariable("VCPKG_ROOT")), gstreamer_plugins, gstreamer_bin;
     std::filesystem::path gstreamer_plugins_path, gstreamer_bin_path;
-    // only test pass on Windows
+
+    #ifdef _WIN32
+    std::string platform = "x64-windows";
+    std::string system_lib = getEnvironmentVariable("PATH");
+    #elif defined __linux__
+    std::string platform = "x64-linux-dynamic";
+    std::string system_lib = getEnvironmentVariable("LD_LIBRARY_PATH");
+    #endif
+
     #ifdef IS_DEBUG
         std::cout << cv::getBuildInformation() << std::endl;
+        #ifdef WIN32
         _putenv("GST_DEBUG=3");
-        gstreamer_plugins_path = std::filesystem::path(vcpkg_root) / "installed" / "x64-windows" / "debug" / "plugins" / "gstreamer";
-        gstreamer_bin_path = std::filesystem::path(vcpkg_root) / "installed" / "x64-windows" / "debug" / "bin";
+        #elif defined __linux__
+        setenv("GST_DEBUG", "3", 1);
+        #endif
+        gstreamer_plugins_path = std::filesystem::path(vcpkg_root) / "installed" / platform / "debug" / "plugins" / "gstreamer";
+        gstreamer_bin_path = std::filesystem::path(vcpkg_root) / "installed" / platform / "debug" / "bin";
     #else
-        gstreamer_plugins_path = std::filesystem::path(vcpkg_root) / "installed" / "x64-windows" / "plugins" / "gstreamer";
-        gstreamer_bin_path = std::filesystem::path(vcpkg_root) / "installed" / "x64-windows" / "bin";
+        gstreamer_plugins_path = std::filesystem::path(vcpkg_root) / "installed" / platform / "plugins" / "gstreamer";
+        gstreamer_bin_path = std::filesystem::path(vcpkg_root) / "installed" / platform / "bin";
     #endif
-    gstreamer_plugins = "GST_PLUGIN_PATH=" + gstreamer_plugins_path.string();
-    gstreamer_bin = "PATH=" + gstreamer_bin_path.string() + ";" + getEnvironmentVariable("PATH");
-    _putenv(gstreamer_plugins.c_str());
-    _putenv(gstreamer_bin.c_str());
+    gstreamer_plugins = gstreamer_plugins_path.string();
+    gstreamer_bin = gstreamer_bin_path.string() + ";" + system_lib;
+    #ifdef WIN32
+    _putenv(("GST_PLUGIN_PATH=" + gstreamer_plugins).c_str());
+    _putenv(("PATH=" + gstreamer_bin).c_str());
+    #elif defined __linux__
+    setenv("GST_PLUGIN_PATH", gstreamer_plugins_path.string().c_str(), 1);
+    setenv("LD_LIBRARY_PATH", gstreamer_bin_path.string().c_str(), 1);
+    #endif
 }
 
 
-int main() {
+int main(int argc, char** argv) {
     setupEnv();
-    std::string rtspInputUrl, rtspOutputUrl;
-    std::string model_type, model_path, image_path;
+    if (argc != 5) {
+        std::cout << "Usage: " << argv[0] << " <gstInputPipeline> <gstOutputPipeline> <trtModelType> <trtModelPath>"
+                  << std::endl;
+        return -1;
+    }
+    std::string gstInputPipeline(argv[1]),gstOutputPipeline(argv[2]);
+    std::cout << "gstInputPipeline: " << gstInputPipeline << std::endl;
+    std::cout << "gstOutputPipeline: " << gstOutputPipeline << std::endl;
+
     std::unique_ptr<YOLODetector> model;
     ModelParams model_params;
 
-    std::cout << "Enter the type of the model file (cls/det/obb/pose/seg): ";
-    std::cin >> model_type;
+    std::string model_type(argv[3]), model_path(argv[4]);
+
     if (model_type != "cls" && model_type != "det" && model_type != "obb" && model_type != "pose" && model_type != "seg") {
         std::cerr << "Unsupported model type!" << std::endl;
         return -1;
     }
-
-    std::cout << "Enter the path to the model file: ";
-    std::cin >> model_path;
 
     if (model_type == "cls") {
         std::cout << "Loading CLS model..." << std::endl;
@@ -89,31 +114,28 @@ int main() {
         model = std::make_unique<YOLOSeg>(model_path, segParams);
     }
 
-    rtspInputUrl = "rtspsrc location=rtsp://127.0.0.1:8554/live protocols=tcp latency=200 ! "
-                   "rtph264depay wait-for-keyframe=true ! h264parse ! avdec_h264 ! "
-                   "videoconvert ! video/x-raw, format=BGR ! appsink drop=true";
-    rtspOutputUrl = "appsrc is-live=true format=time ! videoconvert ! x264enc tune=zerolatency "
-                    "speed-preset=ultrafast bitrate=2000 ! rtspclientsink "
-                    "location=rtsp://127.0.0.1:8554/out protocols=tcp";
-
-    std::cout << "Opening RTSP stream: " << rtspInputUrl << std::endl;
-    cv::VideoCapture cap(rtspInputUrl, cv::CAP_GSTREAMER);
+    cv::VideoCapture cap(gstInputPipeline, cv::CAP_GSTREAMER);
 
     if (!cap.isOpened()) {
-        std::cout << "Failed to open RTSP stream!" << std::endl;
+        std::cout << "Failed to open RTSP stream! Check gst input pipeline." << gstInputPipeline << std::endl;
         return -1;
     }
 
-    int width = (int)cap.get(cv::CAP_PROP_FRAME_WIDTH);
-    int height = (int)cap.get(cv::CAP_PROP_FRAME_HEIGHT);
-    double fps = cap.get(cv::CAP_PROP_FPS);
-    std::cout << "Stream properties: " << width << "x" << height << " @ " << fps << " FPS" << std::endl;
+    int width   = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_WIDTH));
+    int height  = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_HEIGHT));
+    int fps     = static_cast<int>(cap.get(cv::CAP_PROP_FPS));
 
-    std::cout << "Opening RTSP output stream: " << rtspOutputUrl << std::endl;
-    cv::VideoWriter writer(rtspOutputUrl, cv::CAP_GSTREAMER, 0, fps, cv::Size(width, height), true);
+    std::string outputCaps = cv::format("video/x-raw,format=BGR,width=%d,height=%d,framerate=%d/1",
+                                        width, height, fps);
+    std::string fullOutputPipeline = "appsrc is-live=true format=time do-timestamp=true ! " +
+                                     outputCaps + " ! " +
+                                     gstOutputPipeline;
+    std::cout << "Output Pipeline: " << fullOutputPipeline << std::endl;
+
+    cv::VideoWriter writer(fullOutputPipeline, cv::CAP_GSTREAMER, 0, fps, cv::Size(width, height), true);
 
     if (!writer.isOpened()) {
-        std::cerr << "Failed to open VideoWriter" << std::endl;
+        std::cerr << "Failed to open VideoWriter! Check gst output pipeline: " << fullOutputPipeline << std::endl;
         return -1;
     }
 
@@ -122,7 +144,7 @@ int main() {
     std::string fps_time;
     cv::Point fps_pos = cv::Point(20, 40);
     while (true) {
-        start = std::chrono::high_resolution_clock::now();
+        start = std::chrono::steady_clock::now();
         cap >> frame;
         if (frame.empty()) {
             std::cout << "Empty frame! Stop streaming." << std::endl;
@@ -130,7 +152,7 @@ int main() {
         }
         auto result = model->infer(frame);
         plot_result(frame, result, model_params);
-        end = std::chrono::high_resolution_clock::now();
+        end = std::chrono::steady_clock::now();
         fps_time = cv::format("FPS: %.2f", 1000.0 / std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()),
         cv::putText(frame, fps_time, fps_pos, cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0, 0, 0), 4);
         cv::putText(frame, fps_time, fps_pos, cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(255, 255, 255), 2);

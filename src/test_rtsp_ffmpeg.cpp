@@ -1,15 +1,10 @@
 #include <iostream>
-#include <filesystem>
-#include <cstdlib> // _popen and _pclose
-#include <opencv2/opencv.hpp>
-#include <filesystem>
+#include <atomic>
+#include <thread>
 
-// FFMPEG 取流和 CLI 推流，目测目前延迟在 2s
-void setupEnv() {
-    // Disable OpenCV logging
-    cv::utils::logging::setLogLevel(cv::utils::logging::LOG_LEVEL_SILENT);
-}
+#include "utils.hpp"
 
+// FFMPEG 取流和 CLI 推流
 int main(int argc, char** argv) {
     setupEnv();
     if (argc != 3) {

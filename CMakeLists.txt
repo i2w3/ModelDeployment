@@ -36,29 +36,23 @@ add_compile_definitions(
 add_subdirectory(libs/TRTInfer)
 add_subdirectory(libs/YOLO-TRT)
 
-add_executable(main src/main.cpp)
-target_link_libraries(main PRIVATE
-    ${OpenCV_LIBS}
+set(TEST_TARGETS
+    test_rtsp_gst
+    test_rtsp_gst_pc
+    test_rtsp_ffmpeg
+    test_yolo_trt
+    test_yolo_trt_gst
 )
 
-add_executable(test_rtsp src/test_rtsp.cpp)
-target_link_libraries(test_rtsp PRIVATE
-    ${OpenCV_LIBS}
-)
+foreach(target ${TEST_TARGETS})
+    add_executable(${target} ./src/${target}.cpp)
+    target_link_libraries(${target} PRIVATE ${OpenCV_LIBS})
+    target_include_directories(${target} PRIVATE 
+        ./include
+        $<TARGET_PROPERTY:YOLO-TRT,INTERFACE_INCLUDE_DIRECTORIES>
+    )
+endforeach()
 
-add_executable(test_rtsp2 src/test_rtsp2.cpp)
-target_link_libraries(test_rtsp2 PRIVATE
-    ${OpenCV_LIBS}
-)
-
-add_executable(test_yolo_trt_stream src/test_yolo_trt_stream.cpp)
-target_link_libraries(test_yolo_trt_stream PRIVATE
-    ${OpenCV_LIBS}
-    YOLO-TRT
-)
-
-add_executable(test_yolo_trt src/test_yolo_trt.cpp)
-target_link_libraries(test_yolo_trt PRIVATE
-    ${OpenCV_LIBS}
-    YOLO-TRT
-)
+# 为特定目标添加额外依赖
+target_link_libraries(test_yolo_trt PRIVATE YOLO-TRT)
+target_link_libraries(test_yolo_trt_gst PRIVATE YOLO-TRT)

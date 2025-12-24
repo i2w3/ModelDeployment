@@ -1,50 +1,20 @@
-#include "yolo_trt.h"
+#include "utils.hpp"
 
-// 定义在 yolo_trt.h 中
-extern const ModelParams clsParams, detParams, obbParams, poseParams, segParams;
-
-int main() {
-    cv::utils::logging::setLogLevel(cv::utils::logging::LOG_LEVEL_SILENT);
-
-    std::string model_type, model_path, image_path;
-    std::unique_ptr<YOLODetector> model;
-    ModelParams model_params;
-
-    std::cout << "Enter the type of the model file (cls/det/obb/pose/seg): ";
-    std::cin >> model_type;
-    if (model_type != "cls" && model_type != "det" && model_type != "obb" && model_type != "pose" && model_type != "seg") {
-        std::cerr << "Unsupported model type!" << std::endl;
+// 测试 yolo trt模型
+int main(int argc, char** argv) {
+    setupEnv();
+    if (argc != 3) {
+        std::cout << "Usage: " << argv[0] << " <trtModelType> <trtModelPath>"
+                  << std::endl;
         return -1;
     }
-
-    std::cout << "Enter the path to the model file: ";
-    std::cin >> model_path;
-
-    if (model_type == "cls") {
-        std::cout << "Loading CLS model..." << std::endl;
-        model_params = clsParams;
-        model = std::make_unique<YOLOCls>(model_path, clsParams);
+    std::string model_type(argv[1]), model_path(argv[2]), image_path;
+    auto model_pair = model_parse(model_type, model_path);
+    if (!model_pair.first) {
+        return -1;
     }
-    else if (model_type == "det") {
-        std::cout << "Loading DET model..." << std::endl;
-        model_params = detParams;
-        model = std::make_unique<YOLODet>(model_path, detParams);
-    }
-    else if (model_type == "obb") {
-        std::cout << "Loading OBB model..." << std::endl;
-        model_params = obbParams;
-        model = std::make_unique<YOLOObb>(model_path, obbParams);
-    }
-    else if (model_type == "pose") {
-        std::cout << "Loading POSE model..." << std::endl;
-        model_params = poseParams;
-        model = std::make_unique<YOLOPose>(model_path, poseParams);
-    }
-    else if (model_type == "seg") {
-        std::cout << "Loading SEG model..." << std::endl;
-        model_params = segParams;
-        model = std::make_unique<YOLOSeg>(model_path, segParams);
-    }
+    auto& model = model_pair.first;
+    auto& model_params = model_pair.second;
 
     while (true) {
         std::cout << "Enter the path to the image file: ";

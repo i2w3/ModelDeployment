@@ -22,6 +22,8 @@ docker network create stream-net
 docker run -d \
     --name mediamtx \
     --network stream-net \
+    --memory=1g \
+    --memory-swap=1g \
     -e MTX_RTSPTRANSPORTS=tcp \
     -p 8554:8554 \
     bluenviron/mediamtx:1
@@ -36,7 +38,9 @@ docker run -d \
 # 本地循环推流（注意不是在 mediamtx 容器中运行，可在 TensorRT 容器中运行）
 ## VLC 取流播放刚开始会有卡顿，后面能稳定到 speed=0.99x
 ## 注意对比与 Windows 中的 RTSP Server address，dockers 中需要使用 rtsp://mediamtx:8554/live
-${VCPKG_ROOT}/installed/x64-linux-dynamic/tools/ffmpeg/ffmpeg -re -stream_loop -1 -hwaccel cuda -i ./face2.mp4 -c:v h264_nvenc -c:a copy -g 30 -rtsp_transport tcp -f rtsp rtsp://mediamtx:8554/live
+${VCPKG_ROOT}/installed/x64-linux-dynamic/tools/ffmpeg/ffmpeg -re -stream_loop -1 -hwaccel cuda -i ./demo1.mp4 -c:v h264_nvenc -c:a copy -g 30 -rtsp_transport tcp -f rtsp rtsp://mediamtx:8554/live
+## 添加时间戳，需要去除 GPU 解码
+${VCPKG_ROOT}/installed/x64-linux-dynamic/tools/ffmpeg/ffmpeg -re -stream_loop -1 -i ./demo1.mp4 -vf "drawtext=fontfile='/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf':text='%{localtime}':fontcolor=white:fontsize=35:x=30:y=30:box=1:boxcolor=0x00000000@0.5" -c:v h264_nvenc -c:a copy -g 30 -rtsp_transport tcp -f rtsp rtsp://mediamtx:8554/live
 ```
 
 # Build config
@@ -51,7 +55,8 @@ Windows 还需要在环境变量中添加 `VCPKG_ROOT` 和 vcpkg 可执行文件
 ```powershell
 # 使用 VCPKG 编译二进制库
 vcpkg install spdlog
-vcpkg install ffmpeg[avcodec,avdevice,avfilter,avformat,core,gpl,ffmpeg,nvcodec,swresample,swscale,x264]
+vcpkg install ffmpeg[avcodec,avdevice,avfilter,avformat,core,drawtext,gpl,ffmpeg,nvcodec,swresample,swscale,x264]
+vcpkg install ffmpeg[]
 vcpkg install gstreamer[plugins-base,plugins-good,plugins-bad,plugins-ugly,libav,nvcodec,x264]
 vcpkg install gst-rtsp-server
 vcpkg install opencv4[ade,contrib,cuda,cudnn,dnn,dnn-cuda,ffmpeg,freetype,gstreamer,highgui,ipp,jpeg,nonfree,openjpeg,png,quirc,thread,tiff,webp]
@@ -82,8 +87,7 @@ docker run -it \
 docker start trt
 docker exec -it trt bash
 # 基础依赖
-apt-get update && apt-get -y install curl zip unzip tar pkg-config autoconf autoconf-archive automake libtool python3-venv bison libx11-dev libxft-dev libxext-dev nasm flex libxrandr-dev libxi-dev libxtst-dev
-apt-get autoremove
+apt-get update && apt-get -y install curl zip unzip tar pkg-config autoconf autoconf-archive automake libtool python3-venv bison libx11-dev libxft-dev libxext-dev nasm flex libxrandr-dev libxi-dev libxtst-dev ninja-build && apt-get -y autoremove
 # 设置代理（可选）
 export HTTP_PROXY="http://x.x.x.x:7890"
 export HTTPS_PROXY="http://x.x.x.x:7890"
@@ -100,10 +104,9 @@ echo 'export TensorRT_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu' >> ~/.bashrc
 source ~/.bashrc
 # 使用 VCPKG 安装依赖
 vcpkg install spdlog
-vcpkg install ffmpeg[avcodec,avdevice,avfilter,avformat,core,gpl,ffmpeg,nvcodec,swresample,swscale,x264]
-vcpkg install gstreamer[plugins-base,plugins-good,plugins-bad,plugins-ugly,libav,nvcodec,x264]
-vcpkg install gst-rtsp-server
-vcpkg install opencv4[ade,contrib,cuda,cudnn,dnn,dnn-cuda,ffmpeg,freetype,gstreamer,highgui,ipp,jpeg,nonfree,openjpeg,png,quirc,thread,tiff,webp]
+vcpkg install ffmpeg[ffmpeg,ffplay,ffprobe,drawtext,nvcodec,x264,x265]
+vcpkg install gstreamer[plugins-bad,plugins-base,plugins-good,plugins-ugly,libav,nvcodec,x264,x265] gst-rtsp-server
+vcpkg install opencv4[ffmpeg,gstreamer,contrib,cuda,cudnn,dnn,dnn-cuda,freetype,highgui]
 ## vcpkg onnxruntime port 未实现 linux 端编译，仅供参考
 vcpkg install onnxruntime[cuda,tensorrt]
 ```
@@ -113,29 +116,32 @@ vcpkg install onnxruntime[cuda,tensorrt]
 # 建议使用 vcpkg 中的 cmake
 ${VCPKG_ROOT}/downloads/tools/cmake-*/cmake-*/bin/cmake --preset linux_debug
 ${VCPKG_ROOT}/downloads/tools/cmake-*/cmake-*/bin/cmake --build build/debug
+
+${VCPKG_ROOT}/downloads/tools/cmake-*/cmake-*/bin/cmake --preset linux_release
+${VCPKG_ROOT}/downloads/tools/cmake-*/cmake-*/bin/cmake --build build/release
 ```
 
 测试运行：
 ```bash
 # GSTREAMER CPU 编解码
-build/debug/bin/test_rtsp \
-"rtspsrc location=rtsp://mediamtx:8554/live protocols=tcp latency=100 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! appsink max-buffers=2 drop=false sync=false" \
-"videoconvert ! x264enc tune=zerolatency speed-preset=ultrafast bitrate=2000 threads=4 key-int-max=30 ! rtspclientsink location=rtsp://mediamtx:8554/output protocols=tcp"
+build/release/bin/test_rtsp_gst \
+"rtspsrc location=rtsp://mediamtx:8554/live protocols=tcp latency=30 drop-on-latency=true ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! appsink max-buffers=2 drop=false sync=false" \
+"videoconvert ! x264enc tune=zerolatency speed-preset=medium bitrate=2000 threads=4 key-int-max=30 ! rtspclientsink location=rtsp://mediamtx:8554/output protocols=tcp"
 
 # GSTREAMER GPU 编解码
-build/debug/bin/test_rtsp \
-"rtspsrc location=rtsp://mediamtx:8554/live protocols=tcp latency=100 ! rtph264depay ! h264parse ! nvh264dec ! videoconvert ! video/x-raw,format=BGR ! appsink max-buffers=2 drop=false sync=false" \
+build/release/bin/test_rtsp_gst \
+"rtspsrc location=rtsp://mediamtx:8554/live protocols=tcp latency=30 drop-on-latency=true ! rtph264depay ! h264parse ! nvh264dec ! videoconvert ! video/x-raw,format=BGR ! appsink max-buffers=2 drop=false sync=false" \
 "videoconvert ! video/x-raw,format=NV12 ! nvh264enc bitrate=2000 rc-mode=cbr zerolatency=true ! video/x-h264,profile=high,stream-format=byte-stream ! rtspclientsink location=rtsp://mediamtx:8554/output protocols=tcp"
 
 # GSTREAMER GPU 编解码 + YOLO Model
-build/debug/bin/test_rtsp \
+build/release/bin/test_yolo_trt_gst \
 "rtspsrc location=rtsp://mediamtx:8554/live protocols=tcp latency=100 ! rtph264depay ! h264parse ! nvh264dec ! videoconvert ! video/x-raw,format=BGR ! appsink max-buffers=2 drop=false sync=false" \
 "videoconvert ! video/x-raw,format=NV12 ! nvh264enc bitrate=2000 rc-mode=cbr zerolatency=true ! video/x-h264,profile=high,stream-format=byte-stream ! rtspclientsink location=rtsp://mediamtx:8554/output protocols=tcp" \
 <trtModelType> \
 <trtModelPath>
 
 # FFMPEG GPU 编解码
-build/debug/bin/test_rtsp2 rtsp://mediamtx:8554/live rtsp://mediamtx:8554/output
+build/release/bin/test_rtsp_ffmpeg rtsp://mediamtx:8554/live rtsp://mediamtx:8554/output
 ```
 
 ### GStreamer Pipeline 元素说明
@@ -161,8 +167,8 @@ build/debug/bin/test_rtsp2 rtsp://mediamtx:8554/live rtsp://mediamtx:8554/output
 **完整 Pipeline 结构** (代码自动构建)：
 ```cpp
 appsrc is-live=true format=time do-timestamp=true !
-video/x-raw,format=BGR,width=%d,height=%d,framerate=%d/1 !
-[用户提供的 pipeline]
+video/x-raw,format=BGR,width=%d,height=%d !
+{用户提供的 pipeline}
 ```
 GSTREAMER GPU 解码：
 | 元素 | 参数 | 说明 |

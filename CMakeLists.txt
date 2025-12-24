@@ -37,6 +37,12 @@ add_subdirectory(libs/ModelEncrypt)
 add_subdirectory(libs/TRTInfer)
 add_subdirectory(libs/YOLO-TRT)
 
+add_library(include_folder INTERFACE)
+target_include_directories(include_folder INTERFACE ./include)
+target_include_directories(include_folder SYSTEM INTERFACE
+    $<TARGET_PROPERTY:YOLO-TRT,INTERFACE_INCLUDE_DIRECTORIES>
+)
+
 set(TEST_TARGETS
     test_rtsp_gst
     test_rtsp_gst_pc
@@ -47,11 +53,7 @@ set(TEST_TARGETS
 
 foreach(target ${TEST_TARGETS})
     add_executable(${target} ./src/${target}.cpp)
-    target_link_libraries(${target} PRIVATE ${OpenCV_LIBS})
-    target_include_directories(${target} PRIVATE 
-        ./include
-        $<TARGET_PROPERTY:YOLO-TRT,INTERFACE_INCLUDE_DIRECTORIES>
-    )
+    target_link_libraries(${target} PRIVATE ${OpenCV_LIBS} include_folder)
 endforeach()
 
 # 为特定目标添加额外依赖

@@ -33,6 +33,7 @@ add_compile_definitions(
 
 # add_subdirectory(libs/clipper)
 # add_subdirectory(libs/PaddleOCR)
+add_subdirectory(libs/ModelEncrypt)
 add_subdirectory(libs/TRTInfer)
 add_subdirectory(libs/YOLO-TRT)
 
@@ -56,3 +57,6 @@ endforeach()
 # 为特定目标添加额外依赖
 target_link_libraries(test_yolo_trt PRIVATE YOLO-TRT)
 target_link_libraries(test_yolo_trt_gst PRIVATE YOLO-TRT)
+
+add_executable(test_encrypt ./src/test_encrypt.cpp)
+target_link_libraries(test_encrypt PRIVATE ModelEncrypt)

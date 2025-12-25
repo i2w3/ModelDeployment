@@ -28,6 +28,9 @@ docker run -d \
     -p 8554:8554 \
     bluenviron/mediamtx:1
 
+# 有时候端口被占用导致失败，重装即可
+docker stop mediamtx && docker rm mediamtx
+
 # 官方设置
 [RTSP] listener opened on :8554 (TCP), :8000 (UDP/RTP), :8001 (UDP/RTCP)
 [RTMP] listener opened on :1935

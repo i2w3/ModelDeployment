@@ -1,3 +1,4 @@
 [submodule "libs/TensorRT-YOLO"]
 	path = libs/TensorRT-YOLO
 	url = https://github.com/laugh12321/TensorRT-YOLO.git
+	branch = v6.4.0

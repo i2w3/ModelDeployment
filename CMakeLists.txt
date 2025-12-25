@@ -49,12 +49,7 @@ target_include_directories(include_folder SYSTEM INTERFACE
     $<TARGET_PROPERTY:YOLO-TRT,INTERFACE_INCLUDE_DIRECTORIES>
     libs/TensorRT-YOLO/modules/trtyolo/infer
 )
-
-add_library(other_yolo INTERFACE)
-target_include_directories(other_yolo INTERFACE 
-    libs/TensorRT-YOLO/modules/trtyolo/infer
-)
-target_link_libraries(other_yolo INTERFACE 
+target_link_libraries(include_folder INTERFACE 
     trtyolo
 )
 
@@ -66,6 +61,9 @@ set(TEST_TARGETS
     test_yolo_trt
     test_yolo_trt_gst
     test_yolo_trt_gst_pc
+    test_other_yolo_trt
+    test_other_yolo_trt_gst
+    test_other_yolo_trt_gst_pc
 )
 
 foreach(target ${TEST_TARGETS})
@@ -82,25 +80,3 @@ target_link_libraries(test_yolo_trt_gst_pc PRIVATE YOLO-TRT)
 
 add_executable(test_encrypt ./src/test_encrypt.cpp)
 target_link_libraries(test_encrypt PRIVATE ModelEncrypt)
-
-add_executable(test_other_yolo_trt ./src/test_other_yolo_trt.cpp)
-target_include_directories(test_other_yolo_trt PRIVATE
-    ${OpenCV_INCLUDE_DIRS}
-    other_yolo
-)
-target_link_libraries(test_other_yolo_trt PRIVATE 
-    ${OpenCV_LIBS}
-    other_yolo
-)
-
-add_executable(test_other_yolo_trt_gst ./src/test_other_yolo_trt_gst.cpp)
-target_include_directories(test_other_yolo_trt_gst PRIVATE
-    ${OpenCV_INCLUDE_DIRS}
-    include_folder
-    other_yolo
-)
-target_link_libraries(test_other_yolo_trt_gst PRIVATE 
-    ${OpenCV_LIBS}
-    include_folder
-    other_yolo
-)

@@ -4,10 +4,9 @@
 
 #include "other_yolo.hpp"
 
-// GSTREAMER 取流、YOLO模型推理、GSTREAMER 推流，采用三缓冲区生产者-消费者模型
-// 缓冲区1: 取流 -> 推理 (原始帧)
-// 缓冲区2: 推理 -> 绘图 (帧 + 推理结果)
-// 缓冲区3: 绘图 -> 推流 (绘制后的帧)
+// GSTREAMER 取流、YOLO模型推理、GSTREAMER 推流，采用双缓冲区生产者-消费者模型
+// 缓冲区1: 取流 -> 推理+绘图 (原始帧)
+// 缓冲区2: 推理+绘图 -> 推流 (绘制后的帧)
 int main(int argc, char** argv) {
     setupEnv();
     if (argc != 5) {
@@ -20,12 +19,6 @@ int main(int argc, char** argv) {
     std::cout << "gstOutputPipeline: " << gstOutputPipeline << std::endl;
 
     std::string model_type(argv[3]), model_path(argv[4]);
-    // auto model_pair = omodel_parse(model_type, model_path);
-    // auto& model_variant = model_pair.first;
-    // if (std::holds_alternative<std::monostate>(model_variant)) {
-    //     return -1;
-    // }
-    // auto& model_params = model_pair.second;
     trtyolo::InferOption option;
     option.enableSwapRB();  // BGR->RGB转换
     trtyolo::SegmentModel model(model_path, option);
@@ -58,11 +51,10 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    // 初始化三缓冲区生产者-消费者模型
+    // 初始化双缓冲区生产者-消费者模型
     const size_t MAX_QUEUE_SIZE = 30;   // 缓冲区最大帧数
-    FrameQueue<OPreprocessedImage> frameBuffer_1(MAX_QUEUE_SIZE, "Buffer1_Grab->Infer");
-    FrameQueue<OInferenceResult> frameBuffer_2(MAX_QUEUE_SIZE, "Buffer2_Infer->Plot");
-    FrameQueue<cv::Mat> frameBuffer_3(MAX_QUEUE_SIZE, "Buffer3_Plot->Push");
+    FrameQueue<OPreprocessedImage> frameBuffer_1(MAX_QUEUE_SIZE, "Buffer1_Grab->InferPlot");
+    FrameQueue<cv::Mat> frameBuffer_2(MAX_QUEUE_SIZE, "Buffer2_InferPlot->Push");
     std::atomic<bool> isRunning(true);  // 原子变量：状态标志
 
     // 线程1: 取流线程，负责读取帧到 frameBuffer_1
@@ -76,12 +68,13 @@ int main(int argc, char** argv) {
                     std::cout << "[GRAB] Empty frame! Stop streaming." << std::endl;
                     break;
                 }
+                cv::Mat cloned_frame = frame.clone();
                 trtyolo::Image frame_data(
-                    frame.data,  // 像素数据指针
-                    frame.cols,  // 图像宽度
-                    frame.rows   // 图像高度
+                    cloned_frame.data,  // 像素数据指针（指向克隆后的数据）
+                    cloned_frame.cols,  // 图像宽度
+                    cloned_frame.rows   // 图像高度
                 );
-                frameBuffer_1.push(OPreprocessedImage{frame.clone(), frame_data});
+                frameBuffer_1.push(OPreprocessedImage{std::move(cloned_frame), frame_data});
             }
         } catch (const cv::Exception& e) {
             std::cerr << "[GRAB] OpenCV Exception: " << e.what() << std::endl;
@@ -93,9 +86,9 @@ int main(int argc, char** argv) {
         std::cout << "[GRAB] thread finished." << std::endl;
     });
 
-    // 线程2: 推理线程，负责从 frameBuffer_1 取帧，进行推理后将 <frame, result> 放入 frameBuffer_2
-    std::thread infer_thread([&]() {
-        std::cout << "[INFER] thread started." << std::endl;
+    // 线程2: 推理+绘图线程，负责从 frameBuffer_1 取帧，推理并绘图后放入 frameBuffer_2
+    std::thread infer_plot_thread([&]() {
+        std::cout << "[INFER_PLOT] thread started." << std::endl;
         std::vector<OPreprocessedImage> batch_images;
         std::vector<trtyolo::Image> datas;
         batch_images.reserve(batch_size);
@@ -105,10 +98,11 @@ int main(int argc, char** argv) {
                 if (batch_images.empty()) return;
                 auto results = model.predict(datas);
                 for (size_t i = 0; i < results.size(); i++) {
-                    frameBuffer_2.push(OInferenceResult{
-                        .image = batch_images[i].image.clone(),
-                        .result = results[i]
-                    });
+                    cv::Mat frame = batch_images[i].image.clone();
+                    // 绘制推理结果
+                    visualize(frame, results[i], model_params.class_names);
+                    // 将绘制后的帧放入 frameBuffer_2
+                    frameBuffer_2.push(std::move(frame));
                 }
                 batch_images.clear();
                 datas.clear();
@@ -120,7 +114,7 @@ int main(int argc, char** argv) {
                     batch_images.emplace_back(*frame);
                     datas.emplace_back(frame->data);
 
-                    // 如果批次已满，进行推理
+                    // 如果批次已满，进行推理和绘图
                     if (batch_images.size() >= batch_size) {
                         process_batch();
                     }
@@ -131,43 +125,20 @@ int main(int argc, char** argv) {
                 }
             }
         } catch (const cv::Exception& e) {
-            std::cerr << "[INFER] OpenCV Exception: " << e.what() << std::endl;
+            std::cerr << "[INFER_PLOT] OpenCV Exception: " << e.what() << std::endl;
         } catch (const std::exception& e) {
-            std::cerr << "[INFER] Exception: " << e.what() << std::endl;
+            std::cerr << "[INFER_PLOT] Exception: " << e.what() << std::endl;
         }
         frameBuffer_2.stop();
-        std::cout << "[INFER] thread finished." << std::endl;
+        std::cout << "[INFER_PLOT] thread finished." << std::endl;
     });
 
-    // 线程3: 绘图线程，负责从 frameBuffer_2 取帧和推理结果，绘图后放入 frameBuffer_3
-    std::thread plot_thread([&]() {
-        std::cout << "[PLOT] thread started." << std::endl;
-        try {
-            while (isRunning || !frameBuffer_2.empty()) {
-                if (auto infer_result = frameBuffer_2.pop()) {
-                    // 绘制推理结果
-                    visualize(infer_result->image, infer_result->result, model_params.class_names);
-                    // 将绘制后的帧放入 frameBuffer_3
-                    frameBuffer_3.push(infer_result->image);
-                } else {
-                    break;
-                }
-            }
-        } catch (const cv::Exception& e) {
-            std::cerr << "[PLOT] OpenCV Exception: " << e.what() << std::endl;
-        } catch (const std::exception& e) {
-            std::cerr << "[PLOT] Exception: " << e.what() << std::endl;
-        }
-        frameBuffer_3.stop();
-        std::cout << "[PLOT] thread finished." << std::endl;
-    });
-
-    // 线程4: 推流线程，负责从 frameBuffer_3 取帧推流
+    // 线程3: 推流线程，负责从 frameBuffer_2 取帧推流
     std::thread push_thread([&]() {
         std::cout << "[PUSH] thread started." << std::endl;
         try {
-            while (isRunning || !frameBuffer_3.empty()) {
-                if (auto frame = frameBuffer_3.pop()) {
+            while (isRunning || !frameBuffer_2.empty()) {
+                if (auto frame = frameBuffer_2.pop()) {
                     writer.write(*frame);
                 } else {
                     break;
@@ -188,16 +159,12 @@ int main(int argc, char** argv) {
     isRunning = false;
     frameBuffer_1.stop();
     frameBuffer_2.stop();
-    frameBuffer_3.stop();
 
     if (grab_thread.joinable()) {
         grab_thread.join();
     }
-    if (infer_thread.joinable()) {
-        infer_thread.join();
-    }
-    if (plot_thread.joinable()) {
-        plot_thread.join();
+    if (infer_plot_thread.joinable()) {
+        infer_plot_thread.join();
     }
     if (push_thread.joinable()) {
         push_thread.join();

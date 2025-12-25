@@ -1,7 +1,6 @@
-trtyolo export -v ultralytics -w ./res/yolo/yolo11s-seg.pt -o ./res/yolo/output --max_boxes 100 --iou_thres 0.45 --conf_thres 0.25 -b -1
-
-trtexec --onnx=./res/yolo/output/yolo11s-seg.onnx --saveEngine=./res/yolo/yolo11s-seg.engine --fp16 --minShapes=images:1x3x640x640 --optShapes=images:4x3x640x640 --maxShapes=images:8x3x640x640 --staticPlugins=./build/release/libs/TensorRT-YOLO/modules/plugin/libcustom_plugins.so --setPluginsToSerialize=./build/release/libs/TensorRT-YOLO/modules/plugin/libcustom_plugins.so
-
+# WorkList
+- [x] 引入支持 batch 推理的代码 (git clone https://github.com/laugh12321/TensorRT-YOLO.git) 
+- [ ] 绘图线程跟不上推理线程(batch模式) (src/test_other_yolo_trt_gst_pc.cpp 合并绘图和推理线程，现在是 推理-绘图 线程跟不上)
 
 # Config RTSP Server
 ## Windows
@@ -214,6 +213,10 @@ docker exec -it trt_deploy bash
 重新开发下载 VSCode 的 CMake Tools 插件，切换到侧边栏的 CMake 点击，选择预设并配置按钮，可以搜索到相关的头文件(逻辑见.vscode/c_cpp_properties.json)
 
 # TODO
+trtyolo export -v ultralytics -w ./res/yolo/yolo11s-seg.pt -o ./res/yolo/output --max_boxes 100 --iou_thres 0.45 --conf_thres 0.25 -b -1
+
+trtexec --onnx=./res/yolo/output/yolo11s-seg.onnx --saveEngine=./res/yolo/yolo11s-seg.engine --fp16 --minShapes=images:1x3x640x640 --optShapes=images:4x3x640x640 --maxShapes=images:8x3x640x640 --staticPlugins=./build/release/libs/TensorRT-YOLO/modules/plugin/libcustom_plugins.so --setPluginsToSerialize=./build/release/libs/TensorRT-YOLO/modules/plugin/libcustom_plugins.so
+
 
 # 测试 onnx 和 tensorRT engine 的输出差异
 使用工具[Polygraphy](https://github.com/NVIDIA/TensorRT/tree/master/tools/Polygraphy)，注意要先到 tensorRT 的安装路径找到 python wheel 安装先

@@ -1,12 +1,3 @@
-# WorkList
-- [x] ONNX 模型转 TensorRT Engine (FP32、FP16) (scripts/build_engine.py)
-- [x] YOLO11 五种模型(cls/det/obb/pose/seg) TensorRT 推理 (libs/YOLO-TRT)
-- [x] OPENCV RTSP 取流和推流 (src/test_rtsp.cpp 依赖 GSTREAMER，src/test_rtsp2.cpp 依赖 FFMPEG)
-- [x] YOLO11 五种模型预测 + 推流 (src/test_yolo_trt_stream.cpp)
-- [x] 跨平台编译测试 (目前仅在 Windows 上测试通过 -> linux 上编译通过)
-- [x] 优化推流代码 (gst 推流帧率不稳 + 目前刚开始启动推流后，正常播放几秒后必卡几秒，随后正常 -> 修改 gst 命令后，卡断时间减少)
-- [ ] 优化 src/test_yolo_trt_stream.cpp （帧率不稳，考虑添加生产者消费者模型）
-
 # Config RTSP Server
 ## Windows
 下载 [mediamtx](https://mediamtx.org/) 保持后台运行，配合 [FFMPEG](https://www.gyan.dev/ffmpeg/builds/ffmpeg-git-full.7z) 即可：

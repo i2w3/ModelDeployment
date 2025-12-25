@@ -44,7 +44,7 @@ int main(int argc, char** argv) {
     
     // 初始化生产者-消费者模型
     const size_t MAX_QUEUE_SIZE = 30;   // 缓冲区最大帧数
-    FrameQueue frameBuffer(MAX_QUEUE_SIZE);
+    FrameQueue<cv::Mat> frameBuffer(MAX_QUEUE_SIZE, "Buffer_Producer->Consumer");
     std::atomic<bool> isRunning(true);  // 原子变量：状态标志
 
     // 先启动生产者线程，负责读取帧
@@ -74,11 +74,10 @@ int main(int argc, char** argv) {
     std::thread consumer_thread([&]() {
         std::cout << "[Consumer] thread started." << std::endl;
         try {
-            cv::Mat frame;
             while (isRunning || !frameBuffer.empty()) {
                 // 未按下停止键且视频流未结束 或 队列非空
-                if (frameBuffer.pop(frame)) {
-                    writer.write(frame);
+                if (auto frame = frameBuffer.pop()) {
+                    writer.write(*frame);
                 } else {
                     // pop 返回false，意味着队列为空且已收到停止信号
                     break;

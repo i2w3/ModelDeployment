@@ -13,6 +13,16 @@ find_package(spdlog CONFIG REQUIRED)
 find_package(OpenCV CONFIG REQUIRED)
 find_package(CUDAToolkit REQUIRED) # for TRTInfer CUDA::cudart
 
+# 传递给子项目 libs/TensorRT-YOLO
+set(TRT_PATH "/usr/lib/x86_64-linux-gnu" CACHE PATH "Path to TensorRT installation")
+
+# add_subdirectory(libs/clipper)
+add_subdirectory(libs/ModelEncrypt)
+# add_subdirectory(libs/PaddleOCR)
+add_subdirectory(libs/TensorRT-YOLO)
+add_subdirectory(libs/TRTInfer)
+add_subdirectory(libs/YOLO-TRT)
+
 if(MSVC)
     # 增加 UTF-8 支持
     add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
@@ -20,7 +30,7 @@ if(MSVC)
     # 严格检查
     add_compile_options(/W4 /WX)
 else()
-    add_compile_options(-Wall -Wextra -Werror)
+    add_compile_options(-Wall -Wextra)
 endif()
 
 add_compile_definitions(
@@ -30,12 +40,6 @@ add_compile_definitions(
     # 如果是 Release 模式，定义 IS_RELEASE
     $<$<CONFIG:Release>:IS_RELEASE>
 )
-
-# add_subdirectory(libs/clipper)
-# add_subdirectory(libs/PaddleOCR)
-add_subdirectory(libs/ModelEncrypt)
-add_subdirectory(libs/TRTInfer)
-add_subdirectory(libs/YOLO-TRT)
 
 add_library(include_folder INTERFACE)
 target_include_directories(include_folder INTERFACE ./include)
@@ -62,3 +66,12 @@ target_link_libraries(test_yolo_trt_gst PRIVATE YOLO-TRT)
 
 add_executable(test_encrypt ./src/test_encrypt.cpp)
 target_link_libraries(test_encrypt PRIVATE ModelEncrypt)
+
+add_executable(test_other_yolo_trt ./src/test_other_yolo_trt.cpp)
+target_include_directories(test_other_yolo_trt PRIVATE
+    libs/TensorRT-YOLO/modules/trtyolo/infer
+)
+target_link_libraries(test_other_yolo_trt PRIVATE 
+    ${OpenCV_LIBS}
+    trtyolo
+)

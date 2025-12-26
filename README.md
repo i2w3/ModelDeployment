@@ -36,8 +36,11 @@ docker stop mediamtx && docker rm mediamtx
 # 本地循环推流（注意不是在 mediamtx 容器中运行，可在 TensorRT 容器中运行）
 ## VLC 取流播放刚开始会有卡顿，后面能稳定到 speed=0.99x
 ## 注意对比与 Windows 中的 RTSP Server address，dockers 中需要使用 rtsp://mediamtx:8554/live
-${VCPKG_ROOT}/installed/x64-linux-dynamic/tools/ffmpeg/ffmpeg -re -stream_loop -1 -hwaccel cuda -i ./demo1.mp4 -c:v h264_nvenc -c:a copy -g 30 -rtsp_transport tcp -f rtsp rtsp://mediamtx:8554/live
+${VCPKG_ROOT}/installed/x64-linux-dynamic/tools/ffmpeg/ffmpeg -re -stream_loop -1 -hwaccel cuda -i ./demo1.mp4 -c:v hevc_nvenc -c:a copy -g 30 -bf 0 -tune ull -rtsp_transport tcp -f rtsp rtsp://mediamtx:8554/live
 ## 添加时间戳，需要去除 GPU 解码
+### H264 注意和 GSTREAMER 匹配
+${VCPKG_ROOT}/installed/x64-linux-dynamic/tools/ffmpeg/ffmpeg -re -stream_loop -1 -i ./demo1.mp4 -vf "drawtext=fontfile='/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf':text='%{localtime\:%Y-%m-%d %H\\\\\:%M\\\\\:%S}.%{eif\:1000*(t-trunc(t))\:d\:3}':fontcolor=white:fontsize=35:x=30:y=30:box=1:boxcolor=0x00000000@0.5" -c:v h264_nvenc -c:a copy -g 30 -bf 0 -tune ull -rtsp_transport tcp -f rtsp rtsp://mediamtx:8554/live
+### H265 注意和 GSTREAMER 匹配
 ${VCPKG_ROOT}/installed/x64-linux-dynamic/tools/ffmpeg/ffmpeg -re -stream_loop -1 -i ./demo1.mp4 -vf "drawtext=fontfile='/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf':text='%{localtime\:%Y-%m-%d %H\\\\\:%M\\\\\:%S}.%{eif\:1000*(t-trunc(t))\:d\:3}':fontcolor=white:fontsize=35:x=30:y=30:box=1:boxcolor=0x00000000@0.5" -c:v hevc_nvenc -c:a copy -g 30 -bf 0 -tune ull -rtsp_transport tcp -f rtsp rtsp://mediamtx:8554/live
 ```
 
@@ -122,6 +125,11 @@ ${VCPKG_ROOT}/downloads/tools/cmake-*/cmake-*/bin/cmake --build build/release
 
 测试运行：
 ```bash
+# GSTREAMER 自动选择解码 + CPU 编码
+build/release/bin/test_rtsp_gst \
+"rtspsrc location=rtsp://mediamtx:8554/live protocols=tcp latency=30 drop-on-latency=true ! decodebin ! videoconvert ! video/x-raw,format=BGR ! appsink max-buffers=2 drop=false sync=false" \
+"videoconvert ! x264enc tune=zerolatency speed-preset=medium bitrate=2000 threads=4 key-int-max=30 ! rtspclientsink location=rtsp://mediamtx:8554/output protocols=tcp"
+
 # GSTREAMER CPU 编解码
 build/release/bin/test_rtsp_gst \
 "rtspsrc location=rtsp://mediamtx:8554/live protocols=tcp latency=30 drop-on-latency=true ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! appsink max-buffers=2 drop=false sync=false" \

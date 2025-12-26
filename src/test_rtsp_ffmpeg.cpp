@@ -19,7 +19,10 @@ int main(int argc, char** argv) {
     std::cout << "RTSP Output URL: " << rtspOutputUrl << std::endl;
     
     // init VideoCapture with FFMPEG backend
-    cv::VideoCapture cap(rtspInputUrl, cv::CAP_FFMPEG);
+    std::vector<int> capOptions = {
+        cv::CAP_PROP_HW_ACCELERATION, cv::VIDEO_ACCELERATION_ANY 
+    };
+    cv::VideoCapture cap(rtspInputUrl, cv::CAP_FFMPEG, capOptions);
     if (!cap.isOpened()) {
         std::cout << "Failed to open RTSP stream!" << std::endl;
         return -1;

@@ -36,39 +36,39 @@ inline void setupEnv() {
     cv::utils::logging::setLogLevel(cv::utils::logging::LOG_LEVEL_SILENT);
 
     // Set GStreamer environment variables
-    std::string vcpkg_root(getEnvironmentVariable("VCPKG_ROOT")), gstreamer_plugins, gstreamer_bin;
-    std::filesystem::path gstreamer_plugins_path, gstreamer_bin_path;
+    std::string gstreamer_plugins, gstreamer_bin, vcpkg_root(getEnvironmentVariable("VCPKG_ROOT"));
+    std::filesystem::path gstreamer_plugins_path, gstreamer_bin_path, gstreamer_tools_path;
 
-    #ifdef _WIN32
+#ifdef _WIN32
     std::string platform = "x64-windows";
     std::string system_lib = getEnvironmentVariable("PATH");
-    #elif defined __linux__
+#elif defined __linux__
     std::string platform = "x64-linux-dynamic";
     std::string system_lib = getEnvironmentVariable("LD_LIBRARY_PATH");
-    #endif
+#endif
+    gstreamer_tools_path = std::filesystem::path(vcpkg_root) / "installed" / platform / "tools" / "gstreamer";
 
-    #ifdef IS_DEBUG
-        std::cout << cv::getBuildInformation() << std::endl;
-        #ifdef WIN32
+#ifdef IS_DEBUG
+    std::cout << cv::getBuildInformation() << std::endl;
+    #ifdef WIN32
         _putenv("GST_DEBUG=3");
-        #elif defined __linux__
+    #elif defined __linux__
         setenv("GST_DEBUG", "3", 1);
-        #endif
-        gstreamer_plugins_path = std::filesystem::path(vcpkg_root) / "installed" / platform / "debug" / "plugins" / "gstreamer";
-        gstreamer_bin_path = std::filesystem::path(vcpkg_root) / "installed" / platform / "debug" / "bin";
-    #else
-        gstreamer_plugins_path = std::filesystem::path(vcpkg_root) / "installed" / platform / "plugins" / "gstreamer";
-        gstreamer_bin_path = std::filesystem::path(vcpkg_root) / "installed" / platform / "bin";
     #endif
+#endif
+    gstreamer_plugins_path = std::filesystem::path(vcpkg_root) / "installed" / platform / "plugins" / "gstreamer";
+    gstreamer_bin_path = std::filesystem::path(vcpkg_root) / "installed" / platform / "bin";
     gstreamer_plugins = gstreamer_plugins_path.string();
     gstreamer_bin = gstreamer_bin_path.string() + ":" + system_lib;
-    #ifdef WIN32
+#ifdef WIN32
     _putenv(("GST_PLUGIN_PATH=" + gstreamer_plugins).c_str());
+    _putenv(("GST_PLUGIN_SCANNER=" + (gstreamer_tools_path / "gst-plugin-scanner.exe").string()).c_str());
     _putenv(("PATH=" + gstreamer_bin).c_str());
-    #elif defined __linux__
+#elif defined __linux__
     setenv("GST_PLUGIN_PATH", gstreamer_plugins_path.string().c_str(), 1);
+    setenv("GST_PLUGIN_SCANNER", (gstreamer_tools_path / "gst-plugin-scanner").string().c_str(), 1);
     setenv("LD_LIBRARY_PATH", gstreamer_bin_path.string().c_str(), 1);
-    #endif
+#endif
 }
 
 // 模型 parse

@@ -38,7 +38,7 @@ docker stop mediamtx && docker rm mediamtx
 ## 注意对比与 Windows 中的 RTSP Server address，dockers 中需要使用 rtsp://mediamtx:8554/live
 ${VCPKG_ROOT}/installed/x64-linux-dynamic/tools/ffmpeg/ffmpeg -re -stream_loop -1 -hwaccel cuda -i ./demo1.mp4 -c:v h264_nvenc -c:a copy -g 30 -rtsp_transport tcp -f rtsp rtsp://mediamtx:8554/live
 ## 添加时间戳，需要去除 GPU 解码
-${VCPKG_ROOT}/installed/x64-linux-dynamic/tools/ffmpeg/ffmpeg -re -stream_loop -1 -i ./demo1.mp4 -vf "drawtext=fontfile='/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf':text='%{localtime}':fontcolor=white:fontsize=35:x=30:y=30:box=1:boxcolor=0x00000000@0.5" -c:v h264_nvenc -c:a copy -g 30 -rtsp_transport tcp -f rtsp rtsp://mediamtx:8554/live
+${VCPKG_ROOT}/installed/x64-linux-dynamic/tools/ffmpeg/ffmpeg -re -stream_loop -1 -i ./demo1.mp4 -vf "drawtext=fontfile='/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf':text='%{localtime\:%Y-%m-%d %H\\\\\:%M\\\\\:%S}.%{eif\:1000*(t-trunc(t))\:d\:3}':fontcolor=white:fontsize=35:x=30:y=30:box=1:boxcolor=0x00000000@0.5" -c:v hevc_nvenc -c:a copy -g 30 -bf 0 -tune ull -rtsp_transport tcp -f rtsp rtsp://mediamtx:8554/live
 ```
 
 # Build config
@@ -99,6 +99,7 @@ echo 'export PATH=$VCPKG_ROOT:$PATH' >> ~/.bashrc
 echo 'export VCPKG_DEFAULT_TRIPLET=x64-linux-dynamic' >> ~/.bashrc
 echo 'export TensorRT_INCLUDE_DIRS=/usr/include/x86_64-linux-gnu' >> ~/.bashrc
 echo 'export TensorRT_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu' >> ~/.bashrc
+echo 'export PATH="${VCPKG_ROOT}/installed/x64-linux-dynamic/tools/ffmpeg:$PATH"'  >> ~/.bashrc
 source ~/.bashrc
 # 使用 VCPKG 安装依赖
 vcpkg install spdlog

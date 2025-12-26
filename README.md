@@ -205,7 +205,7 @@ cmake --build build/release
 
 ## 宿主机内运行
 docker cp trt:/root/ModelDeployment/build/release/bin ./MD_bin
-docker stop trt
+docker cp trt:/root/vcpkg/installed/ ./vcpkg_installed
 
 # 部署容器（先宿主机上运行，拉取一样的容器并加入 RTSP Server 的网络）
 docker run -it \
@@ -216,6 +216,12 @@ docker run -it \
 ## 进入容器（第一次运行上面的命令应该是已经进入的了，可以跳过）
 docker start trt_deploy
 docker exec -it trt_deploy bash
+
+## 根据前面的配置玩善容器环境，再在宿主机运行
+docker cp ./vcpkg_installed trt_deploy:/root/vcpkg/installed/
+docker cp ./MD_bin trt_deploy:/workspace/dist
+docker exec -it trt_deploy bash
+cd ./dist
 ```
 
 # NOTE

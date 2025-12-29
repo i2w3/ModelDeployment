@@ -7,6 +7,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # 设置指定项目生成的可执行文件路径
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+# 设置库文件的输出目录
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 # 查找所需的包
 find_package(spdlog CONFIG REQUIRED)
@@ -14,11 +17,11 @@ find_package(OpenCV CONFIG REQUIRED)
 find_package(CUDAToolkit REQUIRED) # for TRTInfer CUDA::cudart
 
 # 传递给子项目 libs/TensorRT-YOLO
-set(TRT_PATH "/usr/lib/x86_64-linux-gnu" CACHE PATH "Path to TensorRT installation")
+set(TRT_PATH "/usr/lib/x86_64-linux-gnu" CACHE PATH "Path to TensorRT installation, for libs/TensorRT-YOLO")
 
-# add_subdirectory(libs/clipper)
+add_subdirectory(libs/clipper)
 add_subdirectory(libs/ModelEncrypt)
-# add_subdirectory(libs/PaddleOCR)
+add_subdirectory(libs/PaddleOCR)
 add_subdirectory(libs/TensorRT-YOLO)
 add_subdirectory(libs/TRTInfer)
 add_subdirectory(libs/YOLO-TRT)

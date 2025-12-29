@@ -1,6 +1,6 @@
 # WorkList
 - [x] 引入支持 batch 推理的代码 (git clone https://github.com/laugh12321/TensorRT-YOLO.git) 
-- [ ] 绘图线程跟不上推理线程(batch模式) (src/test_other_yolo_trt_gst_pc.cpp 合并绘图和推理线程，现在是 推理-绘图 线程跟不上)
+- [ ] 使用 YOLO11s-seg::fp16 时，绘图线程跟不上推理线程(batch模式) (src/test_other_yolo_trt_gst_pc.cpp 合并绘图和推理线程，现在是 推理-绘图 线程跟不上)
 
 # Config RTSP Server
 ## Windows
@@ -56,13 +56,10 @@ Windows 还需要在环境变量中添加 `VCPKG_ROOT` 和 vcpkg 可执行文件
 ```powershell
 # 使用 VCPKG 编译二进制库
 vcpkg install spdlog
-vcpkg install ffmpeg[avcodec,avdevice,avfilter,avformat,core,drawtext,gpl,ffmpeg,nvcodec,swresample,swscale,x264]
-vcpkg install ffmpeg[]
-vcpkg install gstreamer[plugins-base,plugins-good,plugins-bad,plugins-ugly,libav,nvcodec,x264]
-vcpkg install gst-rtsp-server
-vcpkg install opencv4[ade,contrib,cuda,cudnn,dnn,dnn-cuda,ffmpeg,freetype,gstreamer,highgui,ipp,jpeg,nonfree,openjpeg,png,quirc,thread,tiff,webp]
-## 注意：windows 端无法编译 gstreamer[nvcodec]
-## vcpkg onnxruntime port 未实现 linux 端编译，仅供参考
+vcpkg install ffmpeg[ffmpeg,ffplay,ffprobe,drawtext,nvcodec,x264,x265]
+vcpkg install gstreamer[plugins-bad,plugins-base,plugins-good,plugins-ugly,libav,x264,x265] gst-rtsp-server
+vcpkg install opencv4[ffmpeg,gstreamer,contrib,cuda,cudnn,dnn,dnn-cuda,freetype,highgui]
+## vcpkg onnxruntime port 未实现，仅供参考
 vcpkg install onnxruntime[cuda,tensorrt]
 ```
 
@@ -103,6 +100,8 @@ echo 'export VCPKG_DEFAULT_TRIPLET=x64-linux-dynamic' >> ~/.bashrc
 echo 'export TensorRT_INCLUDE_DIRS=/usr/include/x86_64-linux-gnu' >> ~/.bashrc
 echo 'export TensorRT_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu' >> ~/.bashrc
 echo 'export PATH="${VCPKG_ROOT}/installed/x64-linux-dynamic/tools/ffmpeg:$PATH"'  >> ~/.bashrc
+echo 'export PATH="${VCPKG_ROOT}/downloads/tools/ninja-1.13.2-linux:$PATH"'  >> ~/.bashrc
+echo 'export PATH="${VCPKG_ROOT}/downloads/tools/cmake-3.31.10-linux/cmake-3.31.10-linux-x86_64/bin:$PATH"'  >> ~/.bashrc
 source ~/.bashrc
 # 使用 VCPKG 安装依赖
 vcpkg install spdlog
@@ -123,32 +122,32 @@ ${VCPKG_ROOT}/downloads/tools/cmake-*/cmake-*/bin/cmake --preset linux_release
 ${VCPKG_ROOT}/downloads/tools/cmake-*/cmake-*/bin/cmake --build build/release
 ```
 
-测试运行：
+使用 release 版本运行保证性能：
 ```bash
 # GSTREAMER 自动选择解码 + CPU 编码
-build/release/bin/test_rtsp_gst \
+build/release/dist/bin/test_rtsp_gst \
 "rtspsrc location=rtsp://mediamtx:8554/live protocols=tcp latency=30 drop-on-latency=true ! decodebin ! videoconvert ! video/x-raw,format=BGR ! appsink max-buffers=2 drop=false sync=false" \
 "videoconvert ! x264enc tune=zerolatency speed-preset=medium bitrate=2000 threads=4 key-int-max=30 ! rtspclientsink location=rtsp://mediamtx:8554/output protocols=tcp"
 
 # GSTREAMER CPU 编解码
-build/release/bin/test_rtsp_gst \
+build/release/dist/bin/test_rtsp_gst \
 "rtspsrc location=rtsp://mediamtx:8554/live protocols=tcp latency=30 drop-on-latency=true ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! appsink max-buffers=2 drop=false sync=false" \
 "videoconvert ! x264enc tune=zerolatency speed-preset=medium bitrate=2000 threads=4 key-int-max=30 ! rtspclientsink location=rtsp://mediamtx:8554/output protocols=tcp"
 
 # GSTREAMER GPU 编解码
-build/release/bin/test_rtsp_gst \
+build/release/dist/bin/test_rtsp_gst \
 "rtspsrc location=rtsp://mediamtx:8554/live protocols=tcp latency=30 drop-on-latency=true ! rtph264depay ! h264parse ! nvh264dec ! videoconvert ! video/x-raw,format=BGR ! appsink max-buffers=2 drop=false sync=false" \
 "videoconvert ! video/x-raw,format=NV12 ! nvh264enc bitrate=2000 rc-mode=cbr zerolatency=true ! video/x-h264,profile=high,stream-format=byte-stream ! rtspclientsink location=rtsp://mediamtx:8554/output protocols=tcp"
 
 # GSTREAMER GPU 编解码 + YOLO Model
-build/release/bin/test_yolo_trt_gst \
-"rtspsrc location=rtsp://mediamtx:8554/live protocols=tcp latency=100 ! rtph264depay ! h264parse ! nvh264dec ! videoconvert ! video/x-raw,format=BGR ! appsink max-buffers=2 drop=false sync=false" \
+build/release/dist/bin/test_yolo_trt_gst \
+"rtspsrc location=rtsp://mediamtx:8554/live protocols=tcp latency=30 drop-on-latency=true ! rtph264depay ! h264parse ! nvh264dec ! videoconvert ! video/x-raw,format=BGR ! appsink max-buffers=2 drop=false sync=false" \
 "videoconvert ! video/x-raw,format=NV12 ! nvh264enc bitrate=2000 rc-mode=cbr zerolatency=true ! video/x-h264,profile=high,stream-format=byte-stream ! rtspclientsink location=rtsp://mediamtx:8554/output protocols=tcp" \
 <trtModelType> \
 <trtModelPath>
 
 # FFMPEG GPU 编解码
-build/release/bin/test_rtsp_ffmpeg rtsp://mediamtx:8554/live rtsp://mediamtx:8554/output
+build/release/dist/bin/test_rtsp_ffmpeg rtsp://mediamtx:8554/live rtsp://mediamtx:8554/output
 ```
 
 ### GStreamer Pipeline 元素说明
@@ -211,13 +210,15 @@ docker cp trt:/root/vcpkg/installed/ ./vcpkg_installed
 docker run -it \
     --gpus all \
     --name trt_deploy \
+    --memory=8g \
+    --memory-swap=8g \
     --network stream-net \
     nvcr.io/nvidia/tensorrt:24.12-py3
 ## 进入容器（第一次运行上面的命令应该是已经进入的了，可以跳过）
 docker start trt_deploy
 docker exec -it trt_deploy bash
 
-## 根据前面的配置玩善容器环境，再在宿主机运行
+## 根据前面的配置完善容器环境，再在宿主机运行
 docker cp ./vcpkg_installed trt_deploy:/root/vcpkg/installed/
 docker cp ./MD_bin trt_deploy:/workspace/dist
 docker exec -it trt_deploy bash
